@@ -5,11 +5,10 @@
 * Updated Version: 25/12/2024 (by Charith PERERA)
 *
 * Description:
-*   - Demonstrates Bluetooth communication between an Arduino and a
-*     Raspberry Pi or other Bluetooth-capable device.
-*   - Reads a PIR (motion) sensor on digital pin 2 and a light sensor on
-*     analog pin A3.
-*   - Sends both readings as a single structured message via Bluetooth.
+*   - Demonstrates Bluetooth (BLE) communication between an Arduino and a
+*     Raspberry Pi or other BLE-capable device.
+*   - Uses a PIR (motion) sensor on digital pin 2 to detect movement and
+*     sends a "Movement" message via Bluetooth when triggered.
 *   - Configures a SoftwareSerial connection on digital pins 8 (RX) and 9 (TX)
 *     for the Bluetooth module.
 ***************************************************************************/
@@ -23,6 +22,9 @@
 #define PIR_MOTION_SENSOR 2  // PIR sensor input pin
 #define LIGHT_SENSOR A3       // Light sensor analog input pin
 
+const unsigned long LIGHT_SEND_INTERVAL_MS = 1000;
+unsigned long lastLightSentAtMs = 0;
+
 // 3. Instantiate a SoftwareSerial object using pins RxD and TxD.
 SoftwareSerial blueToothSerial(RxD, TxD);
 
@@ -34,7 +36,7 @@ void setup()
   while(!Serial) { ; }
   Serial.println("Started");
 
-  // 5. Configure the sensor pins and Bluetooth pins.
+  // 5. Configure the PIR sensor pin as INPUT, and the Bluetooth pins as needed.
   //    - pinMode(RxD, INPUT) is optional because SoftwareSerial handles it.
   //    - pinMode(TxD, OUTPUT) is also handled by SoftwareSerial, but we keep it for clarity.
   pinMode(PIR_MOTION_SENSOR, INPUT);
@@ -59,21 +61,22 @@ void loop()
     Serial.print(incoming);
   }
 
-  // 9. Read PIR and light sensors, then send one line that is easy to parse on Raspberry Pi.
-  int pirState = digitalRead(PIR_MOTION_SENSOR);
-  int lightValue = analogRead(LIGHT_SENSOR);
+  // 9. Check if the PIR sensor detects motion (HIGH state). If yes, send "Movement" 
+  //    to the connected device via Bluetooth, then delay briefly (200 ms).
+  if (digitalRead(PIR_MOTION_SENSOR)) {
+    blueToothSerial.println("Movement");
+  }
 
-  blueToothSerial.print("PIR:");
-  blueToothSerial.print(pirState);
-  blueToothSerial.print(",LIGHT:");
-  blueToothSerial.println(lightValue);
+  // Send light level every second as: Light:<0-1023>
+  unsigned long nowMs = millis();
+  if (nowMs - lastLightSentAtMs >= LIGHT_SEND_INTERVAL_MS) {
+    int lightValue = analogRead(LIGHT_SENSOR);
+    blueToothSerial.print("Light:");
+    blueToothSerial.println(lightValue);
+    lastLightSentAtMs = nowMs;
+  }
 
-  Serial.print("PIR:");
-  Serial.print(pirState);
-  Serial.print(",LIGHT:");
-  Serial.println(lightValue);
-
-  delay(1000);
+  delay(200);
 }
 
 /***************************************************************************
@@ -99,7 +102,7 @@ void setupBlueToothConnection()
   delay(2000);
 
   // Assign a name (up to 12 characters). Here, it’s “Slave”.
-  blueToothSerial.print("AT+NAMESlave");
+  blueToothSerial.print("AT+NAMESOORYAOMG");
   delay(2000);
 
   // Enable authentication (AT+AUTH1).
