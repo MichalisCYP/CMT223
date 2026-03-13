@@ -24,6 +24,7 @@
 
 const unsigned long LIGHT_SEND_INTERVAL_MS = 1000;
 unsigned long lastLightSentAtMs = 0;
+const unsigned long SERIAL_WAIT_TIMEOUT_MS = 3000;
 
 // 3. Instantiate a SoftwareSerial object using pins RxD and TxD.
 SoftwareSerial blueToothSerial(RxD, TxD);
@@ -32,8 +33,11 @@ void setup()
 {
   // 4. Start the hardware Serial for debugging and messages to the Serial Monitor.
   Serial.begin(9600);
-  //    Some Arduino boards require waiting for Serial to be ready (e.g., Leonardo).
-  while(!Serial) { ; }
+  //    Wait briefly for Serial on native USB boards, but do not block forever.
+  unsigned long serialWaitStartMs = millis();
+  while (!Serial && (millis() - serialWaitStartMs < SERIAL_WAIT_TIMEOUT_MS)) {
+    ;
+  }
   Serial.println("Started");
 
   // 5. Configure the PIR sensor pin as INPUT, and the Bluetooth pins as needed.
@@ -65,6 +69,7 @@ void loop()
   //    to the connected device via Bluetooth, then delay briefly (200 ms).
   if (digitalRead(PIR_MOTION_SENSOR)) {
     blueToothSerial.println("Movement");
+    Serial.println("Movement detected");
   }
 
   // Send light level every second as: Light:<0-1023>
@@ -73,6 +78,8 @@ void loop()
     int lightValue = analogRead(LIGHT_SENSOR);
     blueToothSerial.print("Light:");
     blueToothSerial.println(lightValue);
+    Serial.print("Light:");
+    Serial.println(lightValue);
     lastLightSentAtMs = nowMs;
   }
 
@@ -101,7 +108,7 @@ void setupBlueToothConnection()
   blueToothSerial.print("AT+ROLES");
   delay(2000);
 
-  // Assign a name (up to 12 characters). Here, it’s “Slave”.
+  // Assign a name (up to 12 characters).
   blueToothSerial.print("AT+NAMESOORYAOMG");
   delay(2000);
 
