@@ -193,6 +193,7 @@ try:
         # Short delay to ensure stable readings (especially for DHT sensors)
         time.sleep(3)
         print(u"Temperature: {:g}\u00b0C, Humidity: {:g}%".format(temp, humidity))
+        print('RFCOMM payload: {}'.format(rfcomm_data['rfcomm_payload']))
 
         # Prepare sensor data for telemetry
         sensor_data['temperature'] = temp
