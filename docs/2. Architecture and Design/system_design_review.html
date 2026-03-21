@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FocusFlow — System Design Review</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;800&display=swap");
+
+      :root {
+        --bg: #0a0c10;
+        --surface: #111418;
+        --surface2: #181c22;
+        --border: #252930;
+        --accent: #00e5a0;
+        --accent2: #4f8cff;
+        --accent3: #ff5f6d;
+        --warn: #ffb347;
+        --text: #e8edf5;
+        --muted: #6b7685;
+        --mono: "Space Mono", monospace;
+        --sans: "Sora", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+
+      /* ─── HEADER ─── */
+      header {
+        border-bottom: 1px solid var(--border);
+        padding: 2.5rem 4rem;
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        background: linear-gradient(135deg, #0d1117 0%, #111820 100%);
+      }
+      .logo-badge {
+        width: 52px;
+        height: 52px;
+        background: var(--accent);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 1.4rem;
+        color: #000;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      header h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.2rem;
+        font-family: var(--mono);
+      }
+      .tag {
+        margin-left: auto;
+        background: rgba(0, 229, 160, 0.1);
+        border: 1px solid rgba(0, 229, 160, 0.3);
+        color: var(--accent);
+        padding: 0.3rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-family: var(--mono);
+        white-space: nowrap;
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 3rem 2rem 6rem;
+      }
+
+      /* ─── SECTION TITLES ─── */
+      .section-label {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        color: var(--accent);
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      h2 {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 1.5rem;
+      }
+
+      /* ─── INTRO BLOCK ─── */
+      .intro-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 4rem;
+      }
+      .intro-cell {
+        background: var(--surface);
+        padding: 1.5rem;
+      }
+      .intro-cell .num {
+        font-family: var(--mono);
+        font-size: 2.5rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.4rem;
+      }
+      .intro-cell p {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .green {
+        color: var(--accent);
+      }
+      .blue {
+        color: var(--accent2);
+      }
+      .red {
+        color: var(--accent3);
+      }
+      .orange {
+        color: var(--warn);
+      }
+
+      /* ─── CURRENT ARCH ─── */
+      .arch-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 4rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .arch-diagram::before {
+        content: "CURRENT";
+        position: absolute;
+        top: 1.2rem;
+        right: 1.5rem;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.15em;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+      }
+
+      .arch-row {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.2rem;
+      }
+      .arch-node {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.7rem 1rem;
+        font-size: 0.8rem;
+        font-family: var(--mono);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        position: relative;
+      }
+      .arch-node.highlight {
+        border-color: var(--accent);
+        background: rgba(0, 229, 160, 0.06);
+      }
+      .arch-node.warn {
+        border-color: var(--warn);
+        background: rgba(255, 179, 71, 0.06);
+      }
+      .arch-node.danger {
+        border-color: var(--accent3);
+        background: rgba(255, 95, 109, 0.06);
+      }
+      .arch-arrow {
+        color: var(--muted);
+        font-size: 1.2rem;
+      }
+      .protocol-badge {
+        font-size: 0.65rem;
+        background: rgba(79, 140, 255, 0.15);
+        border: 1px solid rgba(79, 140, 255, 0.3);
+        color: var(--accent2);
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-family: var(--mono);
+      }
+
+      /* ─── ISSUES ─── */
+      .issues-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 4rem;
+      }
+      .issue-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent3);
+        border-radius: 12px;
+        padding: 1.2rem 1.4rem;
+      }
+      .issue-card.warn {
+        border-left-color: var(--warn);
+      }
+      .issue-card.info {
+        border-left-color: var(--accent2);
+      }
+      .issue-title {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .issue-body {
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* ─── IMPROVED ARCH ─── */
+      .improved-arch {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2.5rem;
+        margin-bottom: 4rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .improved-arch::before {
+        content: "PROPOSED";
+        position: absolute;
+        top: 1.2rem;
+        right: 1.5rem;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.15em;
+        color: var(--accent);
+        border: 1px solid rgba(0, 229, 160, 0.3);
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+      }
+
+      .layer {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        position: relative;
+      }
+      .layer-title {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .layer-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      .nodes-row {
+        display: flex;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+
+      .node {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.75rem;
+        font-family: var(--mono);
+        text-align: center;
+        min-width: 110px;
+      }
+      .node small {
+        display: block;
+        color: var(--muted);
+        font-size: 0.65rem;
+        margin-top: 0.2rem;
+      }
+      .node.green {
+        border-color: rgba(0, 229, 160, 0.4);
+        background: rgba(0, 229, 160, 0.05);
+      }
+      .node.blue {
+        border-color: rgba(79, 140, 255, 0.4);
+        background: rgba(79, 140, 255, 0.05);
+      }
+      .node.orange {
+        border-color: rgba(255, 179, 71, 0.4);
+        background: rgba(255, 179, 71, 0.05);
+      }
+      .node.red {
+        border-color: rgba(255, 95, 109, 0.4);
+        background: rgba(255, 95, 109, 0.05);
+      }
+      .node.purple {
+        border-color: rgba(180, 120, 255, 0.4);
+        background: rgba(180, 120, 255, 0.05);
+        color: #c8aaff;
+      }
+
+      .conn-row {
+        display: flex;
+        justify-content: center;
+        gap: 3rem;
+        margin: 0.5rem 0;
+        color: var(--muted);
+        font-size: 1.1rem;
+      }
+      .conn-label {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        text-align: center;
+        margin-bottom: 0.2rem;
+      }
+
+      /* ─── COMPARISON TABLE ─── */
+      .comp-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 4rem;
+        font-size: 0.83rem;
+      }
+      .comp-table th {
+        background: var(--surface2);
+        padding: 0.8rem 1rem;
+        text-align: left;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+      }
+      .comp-table td {
+        padding: 0.8rem 1rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      .comp-table tr:last-child td {
+        border-bottom: none;
+      }
+      .comp-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .comp-table .before {
+        color: rgba(255, 95, 109, 0.9);
+      }
+      .comp-table .after {
+        color: rgba(0, 229, 160, 0.9);
+      }
+      .comp-table .aspect {
+        font-weight: 600;
+      }
+      .comp-table {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      /* ─── RECOMMENDATIONS ─── */
+      .recs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 4rem;
+      }
+      .rec-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.4rem;
+      }
+      .rec-num {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      .rec-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-bottom: 0.6rem;
+      }
+      .rec-body {
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      .rec-body code {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--accent2);
+      }
+      .priority {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        margin-bottom: 0.8rem;
+      }
+      .p-high {
+        background: rgba(255, 95, 109, 0.15);
+        color: var(--accent3);
+        border: 1px solid rgba(255, 95, 109, 0.3);
+      }
+      .p-med {
+        background: rgba(255, 179, 71, 0.15);
+        color: var(--warn);
+        border: 1px solid rgba(255, 179, 71, 0.3);
+      }
+      .p-low {
+        background: rgba(79, 140, 255, 0.15);
+        color: var(--accent2);
+        border: 1px solid rgba(79, 140, 255, 0.3);
+      }
+
+      /* ─── DATA FLOW ─── */
+      .flow-section {
+        margin-bottom: 4rem;
+      }
+      .flow-steps {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+      }
+      .flow-step {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 1rem 1.2rem;
+        min-width: 150px;
+        flex-shrink: 0;
+        position: relative;
+      }
+      .flow-step:first-child {
+        border-radius: 10px 0 0 10px;
+      }
+      .flow-step:last-child {
+        border-radius: 0 10px 10px 0;
+      }
+      .flow-step + .flow-step {
+        border-left: none;
+      }
+      .flow-step-num {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        margin-bottom: 0.4rem;
+      }
+      .flow-step-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+      }
+      .flow-step-body {
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      /* ─── FOOTER ─── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem 4rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 3rem 0;
+      }
+
+      .highlight-box {
+        background: rgba(0, 229, 160, 0.05);
+        border: 1px solid rgba(0, 229, 160, 0.2);
+        border-radius: 12px;
+        padding: 1.2rem 1.5rem;
+        margin-bottom: 2rem;
+        font-size: 0.85rem;
+        color: rgba(0, 229, 160, 0.85);
+      }
+      .highlight-box strong {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-badge">FF</div>
+      <div>
+        <h1>FocusFlow — System Design Review</h1>
+        <p>Architecture Evaluation and Archived Alternative Proposal</p>
+      </div>
+      <span class="tag">v1.0 · March 2026</span>
+    </header>
+
+    <main>
+      <div class="highlight-box">
+        <strong>Status:</strong> Archived proposal for comparison only.
+        Canonical MVP architecture is defined in SystemArchitecture.md and
+        Requirements-and-Plan.md.
+      </div>
+
+      <!-- IMPROVED ARCHITECTURE -->
+      <h2>Archived Alternative Architecture</h2>
+
+      <div class="highlight-box">
+        <strong>Core principle:</strong> Separate concerns into distinct layers
+        — sensing, edge inference, local coordination, cloud sync, and client.
+        Add explicit bidirectional data flow so commands can reach hardware from
+        the app.
+      </div>
+
+      <div class="improved-arch">
+        <!-- Layer 1: Sensors -->
+        <div class="layer">
+          <div class="layer-title">
+            <span class="green">■</span> Layer 1 — Sensor Node (Arduino + Grove
+            Shield)
+          </div>
+          <div class="nodes-row">
+            <div class="node green">Light Sensor<small>lux level</small></div>
+            <div class="node green">
+              Sound Sensor<small>ambient noise</small>
+            </div>
+            <div class="node green">
+              Temp/Humidity<small>comfort index</small>
+            </div>
+            <div class="node green">
+              Movement PIR<small>presence detect</small>
+            </div>
+            <div class="node green">Ultrasonic<small>head distance</small></div>
+            <div class="node orange">Buttons<small>manual triggers</small></div>
+            <div class="node orange">
+              Potentiometer<small>sensitivity/vol</small>
+            </div>
+            <div class="node blue">LCD Display<small>local status</small></div>
+          </div>
+          <div
+            style="
+              margin-top: 0.8rem;
+              font-size: 0.72rem;
+              color: var(--muted);
+              font-family: var(--mono);
+            "
+          >
+            ↳ Connects to Hub via
+            <strong style="color: var(--text)">USB Serial (UART)</strong> —
+            reliable, low-latency, no TCP stack required
+          </div>
+        </div>
+
+        <div class="conn-label">USB Serial / I²C</div>
+        <div class="conn-row">▼</div>
+
+        <!-- Layer 2: Edge Hub -->
+        <div class="layer" style="border-color: rgba(0, 229, 160, 0.25)">
+          <div class="layer-title">
+            <span class="green">■</span> Layer 2 — Edge Hub (Raspberry Pi 4/5)
+          </div>
+          <div class="nodes-row">
+            <div class="node green">
+              Sensor Aggregator<small>parse serial data</small>
+            </div>
+            <div class="node green">
+              Camera Module<small>30fps capture</small>
+            </div>
+            <div class="node green">
+              Focus Engine<small>ML inference</small>
+            </div>
+            <div class="node blue">
+              Session Manager<small>Pomodoro state</small>
+            </div>
+            <div class="node blue">
+              OLED Controller<small>feedback display</small>
+            </div>
+            <div class="node blue">Alert Engine<small>buzzer / LED</small></div>
+            <div class="node purple">
+              SQLite Store<small>offline buffer</small>
+            </div>
+            <div class="node purple">
+              Sync Daemon<small>queue + retry</small>
+            </div>
+            <div class="node orange">BT Commander<small>→ OpenClaw</small></div>
+          </div>
+          <div
+            style="
+              margin-top: 0.8rem;
+              font-size: 0.72rem;
+              color: var(--muted);
+              font-family: var(--mono);
+            "
+          >
+            ↳ <strong style="color: var(--text)">Focus Engine</strong>:
+            MediaPipe (head pose + eye gaze) + YOLOv8-nano (phone detection)
+            running locally — no cloud latency<br />
+            ↳ <strong style="color: var(--text)">Sync Daemon</strong>: writes to
+            SQLite first, queues upload with exponential backoff, marks uploaded
+            rows<br />
+            ↳ <strong style="color: var(--text)">WebSocket server</strong> on
+            port 8080 — optional local command channel for post-MVP experiments
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 3rem; margin: 0.5rem 0">
+          <div
+            style="
+              flex: 1;
+              text-align: center;
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              color: var(--muted);
+            "
+          >
+            Bluetooth (SPP) → OpenClaw
+          </div>
+          <div
+            style="
+              flex: 1;
+              text-align: center;
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              color: var(--muted);
+            "
+          >
+            MQTT over TLS + HTTPS via AWS IoT Core
+          </div>
+          <div
+            style="
+              flex: 1;
+              text-align: center;
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              color: var(--muted);
+            "
+          >
+            Optional LAN WebSocket ↕ Mobile App (post-MVP)
+          </div>
+        </div>
+        <div class="conn-row">
+          ▼
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          ▼
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          ▼
+        </div>
+
+        <!-- Layer 3: Parallel -->
+        <div class="nodes-row" style="gap: 1rem; align-items: stretch">
+          <div class="layer" style="flex: 1; margin-bottom: 0">
+            <div class="layer-title">
+              <span style="color: #c8aaff">■</span> OpenClaw Node (RPi Zero 2W)
+            </div>
+            <div class="nodes-row">
+              <div class="node purple">
+                BT Receiver<small>listen commands</small>
+              </div>
+              <div class="node purple">
+                Motion Ctrl<small>arm gestures</small>
+              </div>
+              <div class="node purple">OLED Sub<small>claw status</small></div>
+            </div>
+            <div
+              style="
+                margin-top: 0.7rem;
+                font-size: 0.7rem;
+                color: var(--muted);
+                font-family: var(--mono);
+              "
+            >
+              ↳ Defined behaviors: wave on Pomodoro end, point at phone if
+              detected
+            </div>
+          </div>
+
+          <div
+            class="layer"
+            style="
+              flex: 1.4;
+              margin-bottom: 0;
+              border-color: rgba(79, 140, 255, 0.25);
+            "
+          >
+            <div class="layer-title">
+              <span class="blue">■</span> AWS IoT + Cloud Services
+            </div>
+            <div class="nodes-row">
+              <div class="node blue">IoT Ingest<small>messages</small></div>
+              <div class="node blue">Cloud API<small>clients</small></div>
+              <div class="node blue">Cloud DB<small>storage</small></div>
+              <div class="node blue">Sync Worker<small>retry</small></div>
+              <div class="node blue">Analytics<small>reports</small></div>
+              <div class="node blue">Realtime<small>updates</small></div>
+            </div>
+            <div
+              style="
+                margin-top: 0.7rem;
+                font-size: 0.7rem;
+                color: var(--muted);
+                font-family: var(--mono);
+              "
+            >
+              ↳ Cloud realtime channel pushes session updates to subscribed
+              clients
+            </div>
+          </div>
+
+          <div
+            class="layer"
+            style="
+              flex: 1.2;
+              margin-bottom: 0;
+              border-color: rgba(255, 179, 71, 0.25);
+            "
+          >
+            <div class="layer-title">
+              <span class="orange">■</span> Client Apps
+            </div>
+            <div class="nodes-row">
+              <div class="node orange">
+                Session Planner<small>schedule / goals</small>
+              </div>
+              <div class="node orange">
+                Analytics<small>focus trends</small>
+              </div>
+              <div class="node orange">
+                Environment<small>live sensor view</small>
+              </div>
+              <div class="node orange">Remote Ctrl<small>→ Hub WS</small></div>
+            </div>
+            <div
+              style="
+                margin-top: 0.7rem;
+                font-size: 0.7rem;
+                color: var(--muted);
+                font-family: var(--mono);
+              "
+            >
+              ↳ Connects to cloud APIs for data and can use optional LAN control
+              in post-MVP experiments
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <span
+        >FocusFlow System Design Review · Archived alternative · Generated March
+        2026</span
+      >
+      <span>7 issues · 9 recommendations · 1 proposed architecture</span>
+    </footer>
+  </body>
+</html>
