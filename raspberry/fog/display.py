@@ -13,14 +13,24 @@ class LedEnvironmentDisplay:
 
     def __init__(self) -> None:
         self._lcd_module = None
+        self._lcd = None
         self._has_backlight = False
         try:
-            self._lcd_module = importlib.import_module("grove_rgb_lcd")
-            self._has_backlight = hasattr(self._lcd_module, "setRGB")
-            print("[LED] grove_rgb_lcd module loaded, backlight support: {}".format(self._has_backlight))
+            # Try loading grove.py's RGB LCD module
+            from grove.display.rgb_lcd import RgbLcd
+            self._lcd = RgbLcd()
+            self._has_backlight = True
+            print("[LED] grove.py RgbLcd loaded successfully")
         except Exception as ex:
-            print("[LED] Failed to load grove_rgb_lcd: {}".format(ex))
-            self._lcd_module = None
+            try:
+                # Fallback: try direct grove_rgb_lcd import
+                self._lcd_module = importlib.import_module("grove_rgb_lcd")
+                self._has_backlight = hasattr(self._lcd_module, "setRGB")
+                print("[LED] grove_rgb_lcd module loaded, backlight support: {}".format(self._has_backlight))
+            except Exception as ex2:
+                print("[LED] Failed to load RGB LCD: {} / {}".format(ex, ex2))
+                self._lcd_module = None
+                self._lcd = None
 
     def _set_backlight(self, r: int, g: int, b: int) -> None:
         """Set RGB backlight color if available."""
@@ -47,7 +57,14 @@ class LedEnvironmentDisplay:
 
         text = "{}\n{}".format(line1[:16], line2[:16])
 
-        if self._lcd_module is not None:
+        if hasattr(self, '_lcd') and self._lcd is not None:
+            try:
+                # Using grove.py RgbLcd
+                self._lcd.print(text)
+                self._lcd.setRGB(0, 255, 0)  # Green backlight
+            except Exception as ex:
+                print("[LED] RgbLcd render failed: {} | {}".format(text.replace("\n", " | "), ex))
+        elif self._lcd_module is not None:
             try:
                 setText = getattr(self._lcd_module, "setText", None)
                 if setText is not None:
