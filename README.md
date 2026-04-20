@@ -118,7 +118,7 @@ iot-lab-book-master/            # Reference lab code
 
 ✅ **Transport**
 
-- RFCOMM serial connection (Pi ↔ Arduino)
+- USB serial connection (Pi ↔ Arduino)
 - JSON payload format (easily parseable, extensible)
 - Automatic reconnection with 3-second backoff
 - Baud rate configurable (default 9600)
@@ -139,7 +139,7 @@ iot-lab-book-master/            # Reference lab code
 ## Deployment Readiness
 
 - ✅ No internet required for local operation
-- ✅ Survives RFCOMM dropouts (reconnects automatically)
+- ✅ Survives USB serial disconnects (reconnects automatically)
 - ✅ Modular structure allows easy expansion (CV, buzzer, API layer)
 - ✅ Hardware fallback design (works in dev without Grove/OLED)
 - ✅ JSON format future-proofs protocol (easy to add fields)
@@ -147,10 +147,10 @@ iot-lab-book-master/            # Reference lab code
 
 ## Testing
 
-### Manual test: Verify RFCOMM connection
+### Manual test: Verify USB serial connection
 
 ```bash
-echo '{"v":1,"light":500,"sound":300,"move":1,"button":0}' > /dev/rfcomm0
+echo '{"v":1,"light":500,"sound":300,"move":1,"button":0}' > /dev/ttyACM0
 # Should see log update in running fog node
 ```
 

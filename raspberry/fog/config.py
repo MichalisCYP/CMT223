@@ -4,8 +4,8 @@ import os
 
 @dataclass(frozen=True)
 class FogConfig:
-    rfcomm_device: str = os.getenv("FOG_RFCOMM_DEVICE", "/dev/rfcomm0")
-    rfcomm_baud: int = int(os.getenv("FOG_RFCOMM_BAUD", "9600"))
+    serial_device: str = os.getenv("FOG_SERIAL_DEVICE", os.getenv("FOG_RFCOMM_DEVICE", "/dev/ttyACM0"))
+    serial_baud: int = int(os.getenv("FOG_SERIAL_BAUD", os.getenv("FOG_RFCOMM_BAUD", "9600")))
     reconnect_seconds: float = float(os.getenv("FOG_RECONNECT_SECONDS", "3.0"))
 
     ingest_poll_seconds: float = float(os.getenv("FOG_INGEST_POLL_SECONDS", "0.1"))

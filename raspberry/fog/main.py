@@ -20,7 +20,7 @@ from .workers import (
 
 def main() -> int:
     config = FogConfig()
-    print("Using RFCOMM transport device: {}".format(config.rfcomm_device))
+    print("Using serial transport device: {}".format(config.serial_device))
     state = SharedState()
     repository = Repository(config.sqlite_path)
     session_manager = SessionManager(config.session_minutes, config.break_minutes)

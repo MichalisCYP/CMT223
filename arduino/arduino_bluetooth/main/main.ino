@@ -4,7 +4,7 @@
 #include "environment_sensors.h"
 #include "payload_formatter.h"
 
-BluetoothTransport bluetooth(config::PIN_BLUETOOTH_RX, config::PIN_BLUETOOTH_TX);
+UsbSerialTransport transport;
 ButtonHandler button(config::PIN_BUTTON, true, config::BUTTON_DEBOUNCE_MS,
                      config::BUTTON_LONG_PRESS_MS);
 
@@ -23,37 +23,27 @@ void setup() {
   pinMode(config::PIN_SOUND, INPUT);
   button.begin();
 
-  bluetooth.begin(config::BLUETOOTH_BAUD);
-  bluetooth.setup();
-  bluetooth.flush();
-
-  Serial.println("Arduino MVP sensor node started");
+  transport.begin(config::SERIAL_BAUD);
+  transport.flush();
 }
 
 void loop() {
   const unsigned long nowMs = millis();
 
-  if (bluetooth.available()) {
-    Serial.print(bluetooth.read());
-  }
-
   ButtonEvent event = button.update(nowMs);
   if (event == BUTTON_EVENT_SHORT) {
     String payload = formatButtonEventPayload("SHORT");
-    bluetooth.writeLine(payload);
-    Serial.println(payload);
+    transport.writeLine(payload);
   } else if (event == BUTTON_EVENT_LONG) {
     String payload = formatButtonEventPayload("LONG");
-    bluetooth.writeLine(payload);
-    Serial.println(payload);
+    transport.writeLine(payload);
   }
 
   if (nowMs - lastTelemetrySentAtMs >= config::TELEMETRY_INTERVAL_MS) {
     EnvironmentSample sample =
         readEnvironment(config::PIN_LIGHT, config::PIN_SOUND, config::PIN_PIR);
     String payload = formatTelemetryPayload(sample, button.isPressed());
-    bluetooth.writeLine(payload);
-    Serial.println(payload);
+    transport.writeLine(payload);
     lastTelemetrySentAtMs = nowMs;
   }
 

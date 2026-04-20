@@ -19,7 +19,7 @@ flowchart TB
             ASD[Sound Sensor A0]
             APIR[PIR Sensor D2]
             ABTN[Button D3]
-            ABT[Bluetooth Module D8 or D9]
+            ABT[USB Serial from Arduino]
         end
 
         subgraph CV[Pi CV Node]
@@ -54,7 +54,7 @@ flowchart TB
     ABTN --> ABT
     CAM --> CVP
 
-    ABT -->|Bluetooth RFCOMM Telemetry| H
+    ABT -->|USB Serial Telemetry| H
     CVP -->|HTTP POST Focus Signals| H
     HTEMP --> H
     HDIST --> H
@@ -104,7 +104,7 @@ flowchart TB
 
 ## Protocol Choices
 
-- Edge Arduino -> fog hub: newline-delimited key/value text over RFCOMM.
+- Edge Arduino -> fog hub: newline-delimited JSON over USB serial.
 - Edge CV -> fog hub: local HTTP POST (essential path).
 - Fog -> AWS IoT Core: MQTT over TLS (essential path).
 - Cloud node -> client apps: HTTPS REST + WebSocket for live updates.
@@ -122,7 +122,7 @@ flowchart TB
 
 ## Main Risks
 
-- Bluetooth dropouts.
+- USB serial disconnects.
 - Sensor noise causing unstable score.
 - CV latency on Pi hardware.
 - Cloud connectivity interruptions impacting remote UX.
@@ -141,7 +141,7 @@ MVP decisions are finalized in `../1. Requirements/Requirements-and-Plan.md`.
 
 ### Board Allocation
 
-- Arduino: light, sound, PIR, button, Bluetooth telemetry.
+- Arduino: light, sound, PIR, button, USB serial telemetry.
 - Pi hub: distance sensor, buzzer, display, local control.
 - Pi CV node: camera and CV processing.
 
@@ -154,7 +154,7 @@ flowchart TB
         ASD[Sound Sensor A0/A1]
         APIR[PIR Sensor D2]
         ABTN[Button D3]
-        ABT[Bluetooth Module D8/D9]
+        ABT[USB Serial from Arduino]
     end
 
     subgraph HUB[Raspberry Pi Hub]
@@ -168,7 +168,7 @@ flowchart TB
         CAM[Camera CSI or USB]
     end
 
-    ARD -->|Bluetooth RFCOMM Telemetry| HUB
+    ARD -->|USB Serial Telemetry| HUB
     CV -->|HTTP POST Focus Signals| HUB
 ```
 
@@ -180,7 +180,7 @@ flowchart TB
 | Sound sensor                    | Arduino              | A0 or A1                                        | Analog, typically 5V on Arduino side         | 2 Hz to 5 Hz                   | Estimate environmental noise and distraction level             |
 | PIR movement sensor             | Arduino              | D2                                              | Digital input, 5V logic                      | 2 Hz                           | Detect movement near the desk                                  |
 | Button or LED button input      | Arduino              | D3                                              | Digital input, 5V logic                      | event-driven                   | Manual start, pause, acknowledgement, or intervention controls |
-| Bluetooth module                | Arduino              | D8 RX, D9 TX                                    | SoftwareSerial UART                          | continuous                     | Send telemetry to the hub                                      |
+| USB serial connection           | Arduino              | USB port                                        | Native USB serial                            | continuous                     | Send telemetry to the hub                                      |
 | Temperature and humidity sensor | Raspberry Pi hub     | D4 on GrovePi or equivalent                     | Digital Grove / DHT / I2C depending on model | 0.2 Hz to 0.33 Hz              | Measure room comfort conditions                                |
 | Distance sensor                 | Raspberry Pi hub     | Grove ultrasonic port or GPIO trigger/echo pair | Digital GPIO or Grove                        | 1 Hz to 2 Hz                   | Presence estimation and desk distance monitoring               |
 | Buzzer                          | Raspberry Pi hub     | D8 on GrovePi or GPIO output                    | Digital output                               | event-driven                   | Gentle audio interventions                                     |
@@ -195,8 +195,7 @@ flowchart TB
 - `A0`: sound sensor
 - `D2`: PIR motion sensor
 - `D3`: button input
-- `D8`: Bluetooth RX
-- `D9`: Bluetooth TX
+- USB: Arduino serial connection to the Pi
 
 #### Raspberry Pi Hub
 

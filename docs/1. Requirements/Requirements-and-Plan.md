@@ -61,7 +61,7 @@ Build a local-first focus assistant that can run a full study session without in
 ## 4. Non-Functional Requirements
 
 - Works offline for full local session behavior.
-- Survives temporary Bluetooth, CV, or cloud failures.
+- Survives temporary USB serial, CV, or cloud failures.
 - Near real-time local dashboard updates (polling every 2 seconds for MVP).
 - Maintainable by a 2-person team and demonstrable by 07/05/2026.
 

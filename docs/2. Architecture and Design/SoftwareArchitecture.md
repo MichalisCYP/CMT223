@@ -178,18 +178,26 @@ sequenceDiagram
 
 ### Arduino to Ingest Gateway
 
-Transport: Bluetooth RFCOMM, one UTF-8 line per sample.
+Transport: USB serial, one JSON line per sample.
 
 Format:
 
-```text
-V=1;LIGHT=412;SOUND=275;MOVE=1;BUTTON=0;TEMP=22.4;HUM=46.1
+```json
+{
+  "v": 1,
+  "light": 412,
+  "sound": 275,
+  "move": 1,
+  "button": 0,
+  "temp": 22.4,
+  "hum": 46.1
+}
 ```
 
 Rules:
 
 - Newline separates messages.
-- Fields are KEY=VALUE separated by semicolons.
+- JSON is newline-delimited.
 - Unknown keys are ignored.
 - Invalid lines are logged and dropped.
 
@@ -285,7 +293,7 @@ Recommend break when focus score is below 50 for two consecutive windows.
 Fallback behavior:
 
 - CV unavailable: focus confidence becomes low and interventions are softened until CV recovers
-- Bluetooth down: continue with hub-local signals
+- USB serial down: continue with hub-local signals
 - All inputs down: focus state marked unknown
 
 ### Focus Output Contract

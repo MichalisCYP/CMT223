@@ -26,14 +26,7 @@ class ArduinoIngestWorker(Worker):
         self._state = state
         self._repository = repository
         self._serial = None
-        self._rfcomm_device = config.rfcomm_device
-        if not self._rfcomm_device.startswith("/dev/rfcomm"):
-            print(
-                "Configured device '{}' is not RFCOMM. Falling back to /dev/rfcomm0.".format(
-                    self._rfcomm_device
-                )
-            )
-            self._rfcomm_device = "/dev/rfcomm0"
+        self._serial_device = config.serial_device
 
     def _ensure_serial(self) -> bool:
         if self._serial is not None:
@@ -42,14 +35,14 @@ class ArduinoIngestWorker(Worker):
             serial_module = importlib.import_module("serial")
 
             self._serial = serial_module.Serial(
-                self._rfcomm_device,
-                self._config.rfcomm_baud,
+                self._serial_device,
+                self._config.serial_baud,
                 timeout=self._config.ingest_poll_seconds,
             )
-            print("Connected RFCOMM on {}".format(self._rfcomm_device))
+            print("Connected serial device on {}".format(self._serial_device))
             return True
         except Exception as ex:
-            print("RFCOMM unavailable: {}".format(ex))
+            print("Serial device unavailable: {}".format(ex))
             self._serial = None
             return False
 
@@ -100,7 +93,7 @@ class ArduinoIngestWorker(Worker):
                     fields = parse_arduino_line(raw)
                     self._apply_fields(fields)
             except Exception as ex:
-                print("RFCOMM read failed: {}".format(ex))
+                print("Serial read failed: {}".format(ex))
                 self._close_serial()
                 self.stop_event.wait(self._config.reconnect_seconds)
 

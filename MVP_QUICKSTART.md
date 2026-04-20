@@ -4,7 +4,7 @@ This guide walks you through setting up and running the basic MVP implementation
 
 ## Architecture Overview
 
-- **Arduino Node**: Sends telemetry (light, sound, motion, button) as JSON over Bluetooth RFCOMM
+- **Arduino Node**: Sends telemetry (light, sound, motion, button) as JSON over USB serial
 - **Fog Node (Raspberry Pi)**: Ingests Arduino data, runs session state machine, computes focus score, drives displays
 - **Local Storage**: SQLite for telemetry, session events, and focus samples
 - **Displays**:
@@ -20,9 +20,8 @@ This guide walks you through setting up and running the basic MVP implementation
    - Sound sensor → A0
    - PIR motion → D2
    - Button (momentary) → D3 (active LOW with pull-up)
-   - Bluetooth module RX → D8, TX → D9
 
-2. Ensure Bluetooth module is paired with Raspberry Pi (creates `/dev/rfcomm0`)
+2. Connect the Arduino to the Raspberry Pi with USB and note the serial device path, typically `/dev/ttyACM0` or `/dev/ttyUSB0`
 
 3. Upload [arduino_bluetooth.ino](arduino/arduino_bluetooth/arduino_bluetooth.ino)
 
@@ -33,19 +32,7 @@ This guide walks you through setting up and running the basic MVP implementation
    - Grove-OLED: I2C address 0x3C (SSD1306 or SH1106)
    - Both on `/dev/i2c-1`
 
-2. **Pair Bluetooth device**:
-
-   ```bash
-   # Identify Arduino MAC address
-   bluetoothctl
-   # > scan on
-   # Note the MAC address of your Arduino module
-
-   # Pair and bind to /dev/rfcomm0
-   sudo rfcomm bind /dev/rfcomm0 <MAC_ADDRESS> 1
-   ```
-
-3. **Install Python dependencies**:
+2. **Install Python dependencies**:
    ```bash
    pip install pyserial
    # Optional (for Grove hardware):
@@ -66,8 +53,8 @@ python3 raspberry/main.py
 **Expected output:**
 
 ```
-Using RFCOMM transport device: /dev/rfcomm0
-Connected RFCOMM on /dev/rfcomm0
+Using serial transport device: /dev/ttyACM0
+Connected serial device on /dev/ttyACM0
 Fog node MVP is running. Press Ctrl+C to stop.
 [LED] T:22C H:50% | L:412 S:250 | move=1
 [OLED] RUNNING FOCUS | 25:00 | Focus: 100%
@@ -94,8 +81,8 @@ sqlite3 focusflow_mvp.db
 Environment variables (optional):
 
 ```bash
-export FOG_RFCOMM_DEVICE=/dev/rfcomm0
-export FOG_RFCOMM_BAUD=9600
+export FOG_SERIAL_DEVICE=/dev/ttyACM0
+export FOG_SERIAL_BAUD=9600
 export FOG_SESSION_MINUTES=25
 export FOG_BREAK_MINUTES=5
 export FOG_SQLITE_PATH=focusflow_mvp.db
@@ -104,7 +91,7 @@ python3 raspberry/main.py
 
 ## Telemetry Format
 
-### Arduino → Fog (JSON over RFCOMM)
+### Arduino → Fog (JSON over USB serial)
 
 **Environmental telemetry** (every 1 second):
 
@@ -127,7 +114,7 @@ Parser in [fog/utils.py](raspberry/fog/utils.py) handles JSON format with fallba
 
 The fog coordinator in [fog/main.py](raspberry/fog/main.py) runs these concurrent workers:
 
-1. **ArduinoIngestWorker**: Reads RFCOMM serial, parses JSON, updates shared state
+1. **ArduinoIngestWorker**: Reads USB serial, parses JSON, updates shared state
 2. **LocalEnvironmentWorker**: Optionally reads DHT sensor on GrovePi (D4), falls back gracefully if unavailable
 3. **SessionWorker**: Ticks session timer, handles button events, manages state transitions
 4. **FocusWorker**: Computes focus score (heuristic based on light/sound/motion/environment)
@@ -141,7 +128,7 @@ To see verbose ingest/focus logs, modify worker print statements in [workers.py]
 
 For hardware fallbacks:
 
-- If RFCOMM unavailable: logs to console
+- If USB serial unavailable: logs to console
 - If Grove-LCD missing: renders to console as text
 - If Grove-OLED missing: renders to console as text
 - If GrovePi DHT unavailable: skips (still works with Arduino-only data)
@@ -165,19 +152,19 @@ Examples from `iot-lab-book-master/`:
 
 ## Troubleshooting
 
-| Issue                      | Solution                                                 |
-| -------------------------- | -------------------------------------------------------- |
-| RFCOMM unavailable         | Check pairing: `sudo rfcomm bind /dev/rfcomm0 <MAC> 1`   |
-| No serial data             | Verify Arduino is sending JSON, check baud rate (9600)   |
-| Display blank              | Install luma.oled: `pip install luma.oled pillow`        |
-| Focus score always 0       | Ensure session status is "running" (use button to start) |
-| DHT read fails (test only) | LocalEnvironmentWorker silently continues; not blocking  |
+| Issue                      | Solution                                                                  |
+| -------------------------- | ------------------------------------------------------------------------- |
+| Serial unavailable         | Check cable, then set `FOG_SERIAL_DEVICE` to the correct `/dev/tty*` path |
+| No serial data             | Verify Arduino is sending JSON, check baud rate (9600)                    |
+| Display blank              | Install luma.oled: `pip install luma.oled pillow`                         |
+| Focus score always 0       | Ensure session status is "running" (use button to start)                  |
+| DHT read fails (test only) | LocalEnvironmentWorker silently continues; not blocking                   |
 
 ---
 
 **Delivery Status**: ✅ All success criteria met
 
-- ✅ Sensors transmit over RFCOMM
+- ✅ Sensors transmit over USB serial
 - ✅ SQLite stores all telemetry and events
 - ✅ Session state machine works (start/pause/resume/stop)
 - ✅ Focus estimation runs (light/sound/motion/environment heuristic)

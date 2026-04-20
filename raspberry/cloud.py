@@ -22,7 +22,7 @@ import time
 import paho.mqtt.client as mqtt
 import json
 import grovepi
-import termios
+import serial
 
 # -----------------------------------------------------------------------------
 # 1. ThingsBoard Configuration
@@ -32,10 +32,10 @@ import termios
 THINGSBOARD_HOST = 'thingsboard.cs.cf.ac.uk'
 ACCESS_TOKEN = 'raspberrycardiff2025'  # <== Insert your own access token here.
 
-# RFCOMM serial settings for incoming payloads from the Arduino Bluetooth module.
-RFCOMM_DEVICE = '/dev/rfcomm0'
-RFCOMM_BAUD = 9600
-RFCOMM_RETRY_INTERVAL = 5
+# Serial settings for incoming payloads from the Arduino USB serial connection.
+SERIAL_DEVICE = os.getenv('FOG_SERIAL_DEVICE', os.getenv('FOG_RFCOMM_DEVICE', '/dev/ttyACM0'))
+SERIAL_BAUD = int(os.getenv('FOG_SERIAL_BAUD', os.getenv('FOG_RFCOMM_BAUD', '9600')))
+SERIAL_RETRY_INTERVAL = 5
 
 # -----------------------------------------------------------------------------
 # 2. MQTT Callbacks and Setup
@@ -69,34 +69,17 @@ def on_connect(client, userdata, flags, rc, *extra_params):
     print('Connected with result code ' + str(rc))
 
 
-def open_rfcomm_device(device_path):
+def open_serial_device(device_path):
     """
-    Open and configure an RFCOMM TTY device at 9600 baud in non-blocking mode.
-    Returns a file descriptor, or None if the device is unavailable.
+    Open and configure a serial device at 9600 baud in non-blocking mode.
+    Returns a pyserial Serial instance, or None if the device is unavailable.
     """
     try:
-        fd = os.open(device_path, os.O_RDONLY | os.O_NOCTTY | os.O_NONBLOCK)
-        attrs = termios.tcgetattr(fd)
-
-        # Input flags, output flags, control flags, local flags.
-        attrs[0] = 0
-        attrs[1] = 0
-        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
-        attrs[3] = 0
-
-        # Minimum read chars and timeout are not used in non-blocking mode.
-        attrs[6][termios.VMIN] = 0
-        attrs[6][termios.VTIME] = 0
-
-        # Set input/output speed to 9600 baud.
-        attrs[4] = termios.B9600
-        attrs[5] = termios.B9600
-
-        termios.tcsetattr(fd, termios.TCSANOW, attrs)
-        print('RFCOMM connected on {} at {} baud'.format(device_path, RFCOMM_BAUD))
-        return fd
-    except OSError as ex:
-        print('RFCOMM unavailable on {}: {}'.format(device_path, ex))
+        ser = serial.Serial(device_path, SERIAL_BAUD, timeout=0)
+        print('Serial connected on {} at {} baud'.format(device_path, SERIAL_BAUD))
+        return ser
+    except serial.SerialException as ex:
+        print('Serial unavailable on {}: {}'.format(device_path, ex))
         return None
 
 # -----------------------------------------------------------------------------
@@ -119,9 +102,9 @@ rfcomm_data = {'rfcomm_payload': ''}
 # Publishing interval (seconds). A lower interval might stress the sensor or device.
 INTERVAL = 3
 next_reading = time.time()
-next_rfcomm_retry = 0
-rfcomm_fd = None
-rfcomm_buffer = ''
+next_serial_retry = 0
+serial_fd = None
+serial_buffer = ''
 
 # -----------------------------------------------------------------------------
 # 4. MQTT Client Creation and Configuration
@@ -151,41 +134,48 @@ client.loop_start()
 # -----------------------------------------------------------------------------
 try:
     while True:
-        # If the RFCOMM device is not open, retry periodically.
-        if rfcomm_fd is None and time.time() >= next_rfcomm_retry:
-            rfcomm_fd = open_rfcomm_device(RFCOMM_DEVICE)
-            next_rfcomm_retry = time.time() + RFCOMM_RETRY_INTERVAL
+        # If the serial device is not open, retry periodically.
+        if serial_fd is None and time.time() >= next_serial_retry:
+            serial_fd = open_serial_device(SERIAL_DEVICE)
+            next_serial_retry = time.time() + SERIAL_RETRY_INTERVAL
 
-        # Read any available RFCOMM data without blocking the telemetry loop.
-        if rfcomm_fd is not None:
+        # Read any available serial data without blocking the telemetry loop.
+        if serial_fd is not None:
             try:
-                incoming_bytes = os.read(rfcomm_fd, 256)
+                incoming_bytes = serial_fd.read(256)
                 if incoming_bytes:
-                    rfcomm_buffer += incoming_bytes.decode('utf-8', errors='ignore')
+                    serial_buffer += incoming_bytes.decode('utf-8', errors='ignore')
                     # Normalize line endings so Arduino CRLF and LF are both handled.
-                    rfcomm_buffer = rfcomm_buffer.replace('\r\n', '\n').replace('\r', '\n')
+                    serial_buffer = serial_buffer.replace('\r\n', '\n').replace('\r', '\n')
 
-                    while '\n' in rfcomm_buffer:
-                        line, rfcomm_buffer = rfcomm_buffer.split('\n', 1)
+                    while '\n' in serial_buffer:
+                        line, serial_buffer = serial_buffer.split('\n', 1)
                         payload = line.strip()
                         if payload:
-                            print('Received RFCOMM payload: {}'.format(payload))
+                            print('Received serial payload: {}'.format(payload))
                             rfcomm_data['rfcomm_payload'] = payload
                             print('Publishing telemetry payload: {}'.format(json.dumps(rfcomm_data)))
                             client.publish('v1/devices/me/telemetry', json.dumps(rfcomm_data), 1)
                 else:
                     # Empty read usually indicates that link is closed/disconnected.
-                    os.close(rfcomm_fd)
-                    rfcomm_fd = None
+                    serial_fd.close()
+                    serial_fd = None
+            except serial.SerialException as ex:
+                print('Serial read error: {}'.format(ex))
+                try:
+                    serial_fd.close()
+                except Exception:
+                    pass
+                serial_fd = None
             except BlockingIOError:
                 pass
             except OSError as ex:
-                print('RFCOMM read error: {}'.format(ex))
+                print('Serial read error: {}'.format(ex))
                 try:
-                    os.close(rfcomm_fd)
-                except OSError:
+                    serial_fd.close()
+                except Exception:
                     pass
-                rfcomm_fd = None
+                serial_fd = None
 
         # Read temperature and humidity from DHT sensor
         [temp, humidity] = grovepi.dht(sensor, blue)
@@ -212,10 +202,10 @@ try:
 
 except KeyboardInterrupt:
     # If user presses Ctrl+C, gracefully stop the MQTT loop and disconnect
-    if rfcomm_fd is not None:
+    if serial_fd is not None:
         try:
-            os.close(rfcomm_fd)
-        except OSError:
+            serial_fd.close()
+        except Exception:
             pass
     client.loop_stop()
     client.disconnect()
