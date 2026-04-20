@@ -78,17 +78,23 @@ class OledSessionDisplay:
 
             # Grove-OLED typically at address 0x3C on I2C port 1
             serial = serial_module.i2c(port=1, address=0x3C)
+            print("[OLED] I2C serial initialized")
             
             # Try SSD1306 first (most common), fall back to SH1106 if needed
             try:
                 self._device = oled_module.ssd1306(serial)
-            except Exception:
+                print("[OLED] SSD1306 device initialized")
+            except Exception as e:
+                print("[OLED] SSD1306 failed: {}, trying SH1106...".format(e))
                 self._device = oled_module.sh1106(serial)
+                print("[OLED] SH1106 device initialized")
             
             self._canvas = render_module.canvas
             self._font = pil_module.load_default()
             self._oled_available = True
-        except Exception:
+            print("[OLED] Ready to render")
+        except Exception as ex:
+            print("[OLED] Init failed: {}".format(ex))
             self._oled_available = False
 
     def render(self, session_state: Dict[str, Any], focus_state: Dict[str, Any]) -> None:
@@ -118,6 +124,6 @@ class OledSessionDisplay:
                     # Focus score (bottom)
                     draw.text((0, 48), focus_line, fill=255, font=self._font)
             except Exception as ex:
-                print("[OLED] Render error: {} | {} | {}".format(state_line, timer_line, focus_line))
+                print("[OLED] Render error: {} | {} | {} | Exception: {}".format(state_line, timer_line, focus_line, ex))
         else:
             print("[OLED] {} | {} | {}".format(state_line, timer_line, focus_line))
