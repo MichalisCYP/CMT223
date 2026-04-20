@@ -1,0 +1,15 @@
+# FocusFlow MVP Dependencies
+
+# Core
+pyserial>=3.5
+
+# Grove hardware (optional but recommended)
+grovepi>=0.2
+grove.py>=0.6
+
+# OLED display (optional)
+luma.oled>=3.0
+luma.core>=1.0
+pillow>=9.0
+
+# SQLite is built-in to Python
