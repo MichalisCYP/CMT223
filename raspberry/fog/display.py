@@ -17,7 +17,9 @@ class LedEnvironmentDisplay:
         try:
             self._lcd_module = importlib.import_module("grove_rgb_lcd")
             self._has_backlight = hasattr(self._lcd_module, "setRGB")
-        except Exception:
+            print("[LED] grove_rgb_lcd module loaded, backlight support: {}".format(self._has_backlight))
+        except Exception as ex:
+            print("[LED] Failed to load grove_rgb_lcd: {}".format(ex))
             self._lcd_module = None
 
     def _set_backlight(self, r: int, g: int, b: int) -> None:
@@ -50,10 +52,12 @@ class LedEnvironmentDisplay:
                 setText = getattr(self._lcd_module, "setText", None)
                 if setText is not None:
                     setText(text)
-                # Green backlight for normal operation
-                self._set_backlight(0, 255, 0)
-            except Exception:
-                print("[LED] {} | move={}".format(text.replace("\n", " | "), environment.get("move", 0)))
+                    # Green backlight for normal operation
+                    self._set_backlight(0, 255, 0)
+                else:
+                    print("[LED] setText not found in grove_rgb_lcd")
+            except Exception as ex:
+                print("[LED] setText failed: {} | {}".format(text.replace("\n", " | "), ex))
         else:
             print("[LED] {} | move={}".format(text.replace("\n", " | "), environment.get("move", 0)))
 
