@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+import sys
+import time
 from typing import Dict, Any
 
 
@@ -9,38 +11,101 @@ class LedEnvironmentDisplay:
     
     Shows: Temperature, Humidity, Light, Sound levels.
     Backlight color reflects session status when available.
+    Uses direct I2C communication via smbus.
     """
 
     def __init__(self) -> None:
-        self._lcd_module = None
-        self._lcd = None
-        self._has_backlight = False
+        self._bus = None
+        self._has_display = False
+        
+        # I2C Addresses for Grove RGB LCD
+        self._DISPLAY_RGB_ADDR = 0x62    # Controls backlight color
+        self._DISPLAY_TEXT_ADDR = 0x3e   # Controls text display
+        
         try:
-            # Try loading grove.py's RGB LCD module
-            from grove.display.rgb_lcd import RgbLcd
-            self._lcd = RgbLcd()
-            self._has_backlight = True
-            print("[LED] grove.py RgbLcd loaded successfully")
+            # Initialize I2C bus
+            if sys.platform == 'uwp':
+                import winrt_smbus as smbus
+                self._bus = smbus.SMBus(1)
+            else:
+                import smbus
+                try:
+                    import RPi.GPIO as GPIO
+                    rev = GPIO.RPI_REVISION
+                    self._bus = smbus.SMBus(1 if (rev == 2 or rev == 3) else 0)
+                except:
+                    # Fallback for non-RPi systems or missing GPIO
+                    self._bus = smbus.SMBus(1)
+            
+            self._has_display = True
+            print("[LED] I2C bus initialized successfully")
         except Exception as ex:
-            try:
-                # Fallback: try direct grove_rgb_lcd import
-                self._lcd_module = importlib.import_module("grove_rgb_lcd")
-                self._has_backlight = hasattr(self._lcd_module, "setRGB")
-                print("[LED] grove_rgb_lcd module loaded, backlight support: {}".format(self._has_backlight))
-            except Exception as ex2:
-                print("[LED] Failed to load RGB LCD: {} / {}".format(ex, ex2))
-                self._lcd_module = None
-                self._lcd = None
+            print("[LED] Failed to initialize I2C bus: {}".format(ex))
+            self._has_display = False
 
-    def _set_backlight(self, r: int, g: int, b: int) -> None:
-        """Set RGB backlight color if available."""
-        if self._has_backlight and self._lcd_module is not None:
-            try:
-                setRGB = getattr(self._lcd_module, "setRGB", None)
-                if setRGB is not None:
-                    setRGB(r, g, b)
-            except Exception:
-                pass
+    def _set_rgb(self, r: int, g: int, b: int) -> None:
+        """Set RGB backlight color."""
+        if not self._has_display or self._bus is None:
+            return
+        
+        try:
+            # Configure registers for color mixing
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 0, 0)
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 1, 0)
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 0x08, 0xaa)
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 4, r)
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 3, g)
+            self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 2, b)
+        except Exception as ex:
+            print("[LED] Failed to set RGB: {}".format(ex))
+
+    def _text_command(self, cmd: int) -> None:
+        """Send a command to the text display controller."""
+        if not self._has_display or self._bus is None:
+            return
+        
+        try:
+            self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, cmd)
+        except Exception as ex:
+            print("[LED] Failed to send command: {}".format(ex))
+
+    def _set_text(self, text: str) -> None:
+        """Write text to the LCD display (2 lines, 16 chars each)."""
+        if not self._has_display or self._bus is None:
+            return
+        
+        try:
+            # Clear display
+            self._text_command(0x01)
+            time.sleep(0.05)
+            
+            # Display ON, no cursor
+            self._text_command(0x08 | 0x04)
+            
+            # 2-line display mode
+            self._text_command(0x28)
+            time.sleep(0.05)
+            
+            # Write characters
+            count = 0
+            row = 0
+            for c in text:
+                # Check for newline or 16 characters per line
+                if c == '\n' or count == 16:
+                    count = 0
+                    row += 1
+                    if row == 2:
+                        break
+                    # Move to second line
+                    self._text_command(0xc0)
+                    if c == '\n':
+                        continue
+                
+                count += 1
+                # Write character to LCD data register
+                self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x40, ord(c))
+        except Exception as ex:
+            print("[LED] Failed to set text: {}".format(ex))
 
     def render(self, environment: Dict[str, Any]) -> None:
         # Line 1: Temperature and Humidity
@@ -57,24 +122,13 @@ class LedEnvironmentDisplay:
 
         text = "{}\n{}".format(line1[:16], line2[:16])
 
-        if hasattr(self, '_lcd') and self._lcd is not None:
+        if self._has_display:
             try:
-                # Using grove.py RgbLcd
-                self._lcd.print(text)
-                self._lcd.setRGB(0, 255, 0)  # Green backlight
+                self._set_text(text)
+                # Green backlight for normal operation
+                self._set_rgb(0, 255, 0)
             except Exception as ex:
-                print("[LED] RgbLcd render failed: {} | {}".format(text.replace("\n", " | "), ex))
-        elif self._lcd_module is not None:
-            try:
-                setText = getattr(self._lcd_module, "setText", None)
-                if setText is not None:
-                    setText(text)
-                    # Green backlight for normal operation
-                    self._set_backlight(0, 255, 0)
-                else:
-                    print("[LED] setText not found in grove_rgb_lcd")
-            except Exception as ex:
-                print("[LED] setText failed: {} | {}".format(text.replace("\n", " | "), ex))
+                print("[LED] Render failed: {} | {}".format(text.replace("\n", " | "), ex))
         else:
             print("[LED] {} | move={}".format(text.replace("\n", " | "), environment.get("move", 0)))
 
