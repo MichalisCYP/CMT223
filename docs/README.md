@@ -14,11 +14,12 @@ Short, practical design docs for the FocusFlow MVP.
 1. [1. Requirements/Requirements-and-Plan.md](1.%20Requirements/Requirements-and-Plan.md)
 2. [2. Architecture and Design/SystemArchitecture.md](2.%20Architecture%20and%20Design/SystemArchitecture.md)
 3. [2. Architecture and Design/SoftwareArchitecture.md](2.%20Architecture%20and%20Design/SoftwareArchitecture.md)
-4. [2. Architecture and Design/ERD.md](2.%20Architecture%20and%20Design/ERD.md)
-5. [2. Architecture and Design/UI-UX Design.md](2.%20Architecture%20and%20Design/UI-UX%20Design.md)
-6. [0. Documentation/IoT_Desk_Assistant_Plan.md](0.%20Documentation/IoT_Desk_Assistant_Plan.md)
-7. [0. Documentation/Project_Documentation.md](0.%20Documentation/Project_Documentation.md)
-8. [2. Architecture and Design/system_design_review.html](2.%20Architecture%20and%20Design/system_design_review.html)
+4. [2. Architecture and Design/AWS_IoT_Core_Implementation_Plan.md](2.%20Architecture%20and%20Design/AWS_IoT_Core_Implementation_Plan.md)
+5. [2. Architecture and Design/ERD.md](2.%20Architecture%20and%20Design/ERD.md)
+6. [2. Architecture and Design/UI-UX Design.md](2.%20Architecture%20and%20Design/UI-UX%20Design.md)
+7. [0. Documentation/IoT_Desk_Assistant_Plan.md](0.%20Documentation/IoT_Desk_Assistant_Plan.md)
+8. [0. Documentation/Project_Documentation.md](0.%20Documentation/Project_Documentation.md)
+9. [2. Architecture and Design/system_design_review.html](2.%20Architecture%20and%20Design/system_design_review.html)
 
 ## Requirements Source Of Truth
 
