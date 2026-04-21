@@ -34,7 +34,7 @@ def main() -> int:
         LocalEnvironmentWorker(config, state, repository),
         SessionWorker(config, state, repository, session_manager),
         FocusWorker(config, state, repository),
-        AwsIotPublisherWorker(config, repository),
+        # AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
     ]
 
