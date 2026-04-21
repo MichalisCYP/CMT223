@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from threading import Event, Thread
 
 from .config import FogConfig
@@ -227,3 +228,71 @@ class DisplayWorker(Worker):
             snapshot = self._state.snapshot()
             self._led.render(snapshot["environment"])
             self._oled.render(snapshot["session"], snapshot["focus"])
+
+
+class AwsIotPublisherWorker(Worker):
+    def __init__(self, config: FogConfig, repository: Repository) -> None:
+        super().__init__(name="aws-iot-publisher")
+        self._config = config
+        self._repository = repository
+        self._client = None
+        self._last_ids = {
+            "environment": 0,
+            "session": 0,
+            "focus": 0,
+        }
+
+    def _is_enabled(self) -> bool:
+        return bool(self._config.aws_iot_enabled and self._config.aws_iot_endpoint and self._config.aws_iot_topic_prefix)
+
+    def _ensure_client(self) -> bool:
+        if self._client is not None:
+            return True
+        try:
+            boto3 = importlib.import_module("boto3")
+            self._client = boto3.client(
+                "iot-data",
+                region_name=self._config.aws_iot_region,
+                endpoint_url="https://{}".format(self._config.aws_iot_endpoint),
+            )
+            print("AWS IoT publisher connected to {}".format(self._config.aws_iot_endpoint))
+            return True
+        except Exception as ex:
+            print("AWS IoT client unavailable: {}".format(ex))
+            self._client = None
+            return False
+
+    def _publish_if_new(self, kind: str, row: dict | None) -> None:
+        if row is None:
+            return
+
+        row_id = int(row.get("id", 0))
+        if row_id <= self._last_ids[kind]:
+            return
+
+        topic = "{}/{}".format(self._config.aws_iot_topic_prefix.rstrip("/"), kind)
+        message = {
+            "source": "focusflow-fog",
+            "type": kind,
+            "payload": row,
+        }
+        self._client.publish(topic=topic, qos=1, payload=json.dumps(message).encode("utf-8"))
+        self._last_ids[kind] = row_id
+
+    def run(self) -> None:
+        if not self._is_enabled():
+            print("AWS IoT publisher is disabled. Set FOG_AWS_IOT_ENABLED=true and endpoint/topic env vars to enable.")
+            return
+
+        while not self.stop_event.wait(self._config.aws_iot_publish_seconds):
+            if not self._ensure_client():
+                self.stop_event.wait(self._config.reconnect_seconds)
+                continue
+
+            try:
+                self._publish_if_new("environment", self._repository.latest_environment())
+                self._publish_if_new("session", self._repository.latest_session_event())
+                self._publish_if_new("focus", self._repository.latest_focus())
+            except Exception as ex:
+                print("AWS IoT publish failed: {}".format(ex))
+                self._client = None

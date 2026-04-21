@@ -17,3 +17,14 @@ class FogConfig:
     break_minutes: int = int(os.getenv("FOG_BREAK_MINUTES", "5"))
 
     sqlite_path: str = os.getenv("FOG_SQLITE_PATH", "focusflow_mvp.db")
+
+    aws_iot_enabled: bool = os.getenv("FOG_AWS_IOT_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    aws_iot_endpoint: str = os.getenv("FOG_AWS_IOT_ENDPOINT", "")
+    aws_iot_region: str = os.getenv("FOG_AWS_IOT_REGION", os.getenv("AWS_REGION", "us-east-1"))
+    aws_iot_topic_prefix: str = os.getenv("FOG_AWS_IOT_TOPIC_PREFIX", "focusflow")
+    aws_iot_publish_seconds: float = float(os.getenv("FOG_AWS_IOT_PUBLISH_SECONDS", "2.0"))
