@@ -13,6 +13,3 @@ luma.core>=1.0
 pillow>=9.0
 
 # SQLite is built-in to Python
-
-# AWS IoT Core publishing
-boto3>=1.34

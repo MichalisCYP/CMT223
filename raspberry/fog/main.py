@@ -11,7 +11,6 @@ from .session import SessionManager
 from .state import SharedState
 from .workers import (
     ArduinoIngestWorker,
-    AwsIotPublisherWorker,
     DisplayWorker,
     FocusWorker,
     LocalEnvironmentWorker,
@@ -34,7 +33,6 @@ def main() -> int:
         LocalEnvironmentWorker(config, state, repository),
         SessionWorker(config, state, repository, session_manager),
         FocusWorker(config, state, repository),
-        AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
     ]
 
