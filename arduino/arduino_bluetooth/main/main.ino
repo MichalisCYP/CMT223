@@ -1,14 +1,14 @@
-#include "bluetooth_transport.h"
-#include "button_handler.h"
+#include "usbserial_transport.h"
 #include "config.h"
 #include "environment_sensors.h"
 #include "payload_formatter.h"
 
 UsbSerialTransport transport;
-ButtonHandler button(config::PIN_BUTTON, true, config::BUTTON_DEBOUNCE_MS,
-                     config::BUTTON_LONG_PRESS_MS);
 
 unsigned long lastTelemetrySentAtMs = 0;
+
+bool buttonState = false;
+bool prevButtonState = false;
 
 void setup() {
   Serial.begin(config::SERIAL_BAUD);
@@ -21,7 +21,7 @@ void setup() {
   pinMode(config::PIN_PIR, INPUT);
   pinMode(config::PIN_LIGHT, INPUT);
   pinMode(config::PIN_SOUND, INPUT);
-  button.begin();
+  pinMode(config::PIN_BUTTON, INPUT);
 
   transport.begin(config::SERIAL_BAUD);
   transport.flush();
@@ -30,22 +30,19 @@ void setup() {
 void loop() {
   const unsigned long nowMs = millis();
 
-  ButtonEvent event = button.update(nowMs);
-  if (event == BUTTON_EVENT_SHORT) {
-    String payload = formatButtonEventPayload("SHORT");
-    transport.writeLine(payload);
-  } else if (event == BUTTON_EVENT_LONG) {
-    String payload = formatButtonEventPayload("LONG");
-    transport.writeLine(payload);
+  buttonState = digitalRead(config::PIN_BUTTON);
+
+  if (buttonState != prevButtonState) {
+    prevButtonState = buttonState;
   }
 
   if (nowMs - lastTelemetrySentAtMs >= config::TELEMETRY_INTERVAL_MS) {
     EnvironmentSample sample =
         readEnvironment(config::PIN_LIGHT, config::PIN_SOUND, config::PIN_PIR);
-    String payload = formatTelemetryPayload(sample, button.isPressed());
+    String payload = formatTelemetryPayload(sample, buttonState);
     transport.writeLine(payload);
     lastTelemetrySentAtMs = nowMs;
   }
 
-  delay(25);
+  delay(100);
 }

@@ -6,7 +6,7 @@
 namespace config {
 
 constexpr uint8_t PIN_PIR = 2;
-constexpr uint8_t PIN_BUTTON = 3;
+constexpr uint8_t PIN_BUTTON = 4;
 constexpr uint8_t PIN_LIGHT = A3;
 constexpr uint8_t PIN_SOUND = A0;
 

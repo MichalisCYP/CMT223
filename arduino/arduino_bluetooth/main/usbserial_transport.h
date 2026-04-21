@@ -1,5 +1,5 @@
-#ifndef BLUETOOTH_TRANSPORT_H
-#define BLUETOOTH_TRANSPORT_H
+#ifndef USBSERIAL_TRANSPORT_H
+#define USBSERIAL_TRANSPORT_H
 
 #include <Arduino.h>
 
