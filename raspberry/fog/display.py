@@ -135,9 +135,9 @@ class LedEnvironmentDisplay:
 
 class OledSessionDisplay:
     """Grove-OLED display for session and timer information.
-
-    Shows: session status/phase, countdown timer, focus score.
-    Uses the Grove display driver directly via ``grove.display``.
+    
+    Target Device: GGM096096A4W01 (96x96 OLED)
+    Driver IC: SH1107G
     """
 
     def __init__(self) -> None:
@@ -147,30 +147,32 @@ class OledSessionDisplay:
             grove_display = importlib.import_module("grove.display.base")
             sh1107g = getattr(grove_display, "SH1107G")
 
-            for address in (0x3C, 0x3E):
+            # Correct I2C addresses per SH1107G Manual Page 21
+            # 0x78 (SA0=0) -> 0x3C 7-bit
+            # 0x7A (SA0=1) -> 0x3D 7-bit (Your code had 0x3E)
+            for address in (0x3C, 0x3D):
                 try:
                     self._device = sh1107g(address=address)
-                    print("[OLED] Grove SH1107G initialized at 0x{:02X}".format(address))
+                    print("[OLED] SH1107G initialized at 0x{:02X}".format(address))
                     break
                 except Exception as ex:
-                    print("[OLED] Init retry at 0x{:02X} failed: {}".format(address, ex))
+                    print("[OLED] Init retry at 0x{:02X} failed".format(address))
 
             if self._device is None:
-                raise RuntimeError("Unable to initialize Grove OLED display")
+                raise RuntimeError("Unable to initialize SH1107G display")
 
-            if hasattr(self._device, "backlight"):
-                try:
-                    self._device.backlight(True)
-                except Exception:
-                    pass
-
+            # Manual recommends clearing RAM and setting display ON (0xAF) 
+            # during init (Page 16/23)
             self._oled_available = True
-            print("[OLED] Ready to render")
+            
         except Exception as ex:
             print("[OLED] Init failed: {}".format(ex))
             self._oled_available = False
 
     def render(self, session_state: Dict[str, Any], focus_state: Dict[str, Any]) -> None:
+        # Note: This display is 96x96 pixels, not a character LCD.
+        # Ensure the 'sh1107g' driver supports setCursor/write for text.
+        
         remaining = int(session_state.get("remaining_seconds", 0))
         minutes = remaining // 60
         seconds = remaining % 60
@@ -185,17 +187,20 @@ class OledSessionDisplay:
 
         if self._oled_available and self._device is not None:
             try:
+                # Page 23 of manual shows clearing RAM before display
                 if hasattr(self._device, "clear"):
                     self._device.clear()
 
+                # The SH1107G uses 16 pages for its 96-line height (Page 23)
+                # Ensure row mapping matches the 96x96 coordinate system
                 for row, line in enumerate((state_line, timer_line, focus_line)):
                     if hasattr(self._device, "setCursor"):
-                        self._device.setCursor(row, 0)
+                        # Offset rows to be readable on the 96px height
+                        self._device.setCursor(row * 2, 0) 
                     if hasattr(self._device, "write"):
-                        self._device.write(line[:16])
+                        self._device.write(line)
             except Exception as ex:
-                print("[OLED] Render error: {} | {} | {} | Exception: {}".format(state_line, timer_line, focus_line, ex))
+                print("[OLED] Render error: {}".format(ex))
         else:
             print("[OLED] {} | {} | {}".format(state_line, timer_line, focus_line))
-
 # https://github.com/orji123/Irisoled - future integration
