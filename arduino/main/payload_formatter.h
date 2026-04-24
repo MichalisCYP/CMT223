@@ -5,7 +5,7 @@
 #include "environment_sensors.h"
 
 inline String formatTelemetryPayload(const EnvironmentSample& sample,
-                                     bool buttonPressed) {
+                                     bool buttonState) {
   String payload = "{";
   payload += "\"v\":1";
   payload += ",\"light\":";
@@ -15,17 +15,8 @@ inline String formatTelemetryPayload(const EnvironmentSample& sample,
   payload += ",\"move\":";
   payload += sample.motion;
   payload += ",\"button\":";
-  payload += buttonPressed ? 1 : 0;
+  payload += buttonState ? 1 : 0;
   payload += "}";
-  return payload;
-}
-
-inline String formatButtonEventPayload(const char* name) {
-  String payload = "{";
-  payload += "\"v\":1";
-  payload += ",\"btn_event\":\"";
-  payload += name;
-  payload += "\"}";
   return payload;
 }
 
