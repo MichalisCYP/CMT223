@@ -4,7 +4,7 @@ Short, practical design docs for the FocusFlow MVP.
 
 ## What This Project Is
 
-- Arduino sensor node (light, sound, PIR, button)
+- Arduino sensor node (light, sound, PIR, temp/humidity, distance)
 - Raspberry Pi hub (session logic, API, SQLite, dashboard, sync)
 - Raspberry Pi CV node (face presence and looking-away signals)
 - Local-first operation, cloud sync in background

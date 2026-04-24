@@ -12,7 +12,7 @@ Build a local-first focus assistant that can run a full study session without in
 
 ### 2.1 In Scope (MVP)
 
-- Arduino telemetry: light, sound, PIR motion, button.
+- Arduino telemetry: light, sound, PIR motion, temperature/humidity, distance.
 - Raspberry Pi hub: ingest data, run session logic, compute focus score, store in SQLite.
 - CV signal integration: face presence and looking-away input.
 - Dashboard: live status and session history.
@@ -74,15 +74,15 @@ Build a local-first focus assistant that can run a full study session without in
 
 ## 6. Finalized MVP Decisions
 
-| ID   | Decision                      | Outcome                                                                   | Rationale                                                   |
-| ---- | ----------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| D-01 | Temp/humidity sensor location | Raspberry Pi hub                                                          | Keeps Arduino payload smaller and wiring simpler            |
-| D-02 | Display module                | I2C Grove RGB LCD                                                         | Easy integration with Raspberry Pi and clear local feedback |
-| D-03 | Button behavior               | Single momentary button: short press acknowledge, long press pause/resume | Minimal UX complexity for MVP                               |
-| D-04 | CV node scope                 | Face presence + looking-away only                                         | Useful signal without over-scoping ML                       |
-| D-05 | CV transport                  | Local HTTP POST                                                           | Fast integration and easy debugging                         |
-| D-06 | Dashboard updates             | HTTP polling every 2 seconds                                              | Reliable for MVP without WebSocket complexity               |
-| D-07 | AWS scope                     | AWS IoT Core only for MVP                                                 | Reduces delivery risk                                       |
+| ID   | Decision                      | Outcome                                                                             | Rationale                                                    |
+| ---- | ----------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| D-01 | Temp/humidity sensor location | Arduino edge node                                                                   | Keep core environment telemetry in one constant edge payload |
+| D-02 | Display module                | Grove I2C display on Raspberry Pi hub                                               | Easy integration with Raspberry Pi and clear local feedback  |
+| D-03 | Button behavior               | Single momentary button on Pi hub: short press acknowledge, long press pause/resume | Direct local interaction with fog session manager            |
+| D-04 | CV node scope                 | Face presence + looking-away only                                                   | Useful signal without over-scoping ML                        |
+| D-05 | CV transport                  | Local HTTP POST                                                                     | Fast integration and easy debugging                          |
+| D-06 | Dashboard updates             | HTTP polling every 2 seconds                                                        | Reliable for MVP without WebSocket complexity                |
+| D-07 | AWS scope                     | AWS IoT Core only for MVP                                                           | Reduces delivery risk                                        |
 
 ## 7. Technical Baseline (Recommended)
 

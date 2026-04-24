@@ -15,6 +15,7 @@ class EnvironmentState:
     button: int = 0
     temperature: float = 0.0
     humidity: float = 0.0
+    distance_cm: int = 0
     updated_at: str = ""
 
 

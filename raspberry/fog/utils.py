@@ -21,7 +21,7 @@ def parse_arduino_line(line: str) -> Dict[str, str]:
     """Parse JSON telemetry payload from Arduino.
 
     Expected format (example):
-    {"v":1,"light":412,"sound":275,"move":1,"button":0}
+    {"v":1,"light":412,"sound":275,"move":1,"temp":22.4,"hum":46.1,"distance_cm":71}
     {"v":1,"btn_event":"SHORT"}
     """
     payload = line.strip()

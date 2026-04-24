@@ -188,9 +188,9 @@ Format:
   "light": 412,
   "sound": 275,
   "move": 1,
-  "button": 0,
   "temp": 22.4,
-  "hum": 46.1
+  "hum": 46.1,
+  "distance_cm": 71
 }
 ```
 
@@ -261,8 +261,8 @@ focusflow/hub/environment_event
 ### Input Set
 
 - CV: face_present, looking_away, head_pose, confidence
-- Hub: distance_cm, temp/humidity
-- Arduino: light, sound, movement, button
+- Hub: button input (session control)
+- Arduino: Grove light, sound, movement, temp/humidity, distance_cm
 - Derived: inactivity_seconds
 
 ### Window and Scoring
