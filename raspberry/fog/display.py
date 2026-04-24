@@ -75,8 +75,8 @@ class OledSessionDisplay:
             oled_module = importlib.import_module("luma.oled.device")
             
             # 1. SH1107G Addressing: SA0=0 is 0x3C, SA0=1 is 0x3D
-            # 2. Port: 3 for your Grove setup
-            serial = serial_module.i2c(port=3, address=0x3C)
+            # 2. Port: 1 for your Grove setup
+            serial = serial_module.i2c(port=1, address=0x3C)
             
             # 3. Model: sh1107 device with 96x96 resolution per datasheet specs
             self._device = oled_module.sh1107(serial, width=96, height=96)
