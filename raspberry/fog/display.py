@@ -51,7 +51,6 @@ class LedEnvironmentDisplay:
         l2 = "L:{:3d} S:{:3d}".format(environment.get("light", 0), environment.get("sound", 0))
         self._set_text(f"{l1[:16]}\n{l2[:16]}")
         self._set_rgb(0, 255, 0) # Normal operation Green
-
 class OledSessionDisplay:
     def __init__(self) -> None:
         self._oled_available = False
@@ -61,14 +60,16 @@ class OledSessionDisplay:
             render_module = importlib.import_module("luma.core.render")
             oled_module = importlib.import_module("luma.oled.device")
             
-            # Use detected address 0x3C and Port 1
+            # Detected address 0x3C on Port 1
             serial = serial_module.i2c(port=1, address=0x3C)
             
-            # SH1107 driver with mandatory 96x96 resolution per datasheet [cite: 31, 37]
-            self._device = oled_module.sh1107(serial, width=96, height=96, rotate=0)
+            # Fix: Initialize at 128x128 to satisfy the luma.oled driver constraints.
+            # The SH1107G driver IC supports this, even though our panel uses 96x96.
+            self._device = oled_module.sh1107(serial, width=128, height=128, rotate=0)
+            
             self._canvas = render_module.canvas
             self._oled_available = True
-            print("[OLED] SH1107G 96x96 ready on I2C-1")
+            print("[OLED] SH1107G initialized (Buffered at 128x128)")
         except Exception as ex:
             print(f"[OLED] Init failed: {ex}")
 
@@ -82,7 +83,8 @@ class OledSessionDisplay:
 
         try:
             with self._canvas(self._device) as draw:
-                # Drawing text within the 96x96 active area [cite: 37]
+                # IMPORTANT: Only draw within the 96x96 Active Area.
+                # Data outside 96x96 will not be visible on your physical panel.
                 draw.text((0, 0), status[:12], fill="white")
                 draw.text((20, 35), timer, fill="white")
                 draw.text((0, 75), focus, fill="white")
