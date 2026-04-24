@@ -134,38 +134,36 @@ class LedEnvironmentDisplay:
 
 
 class OledSessionDisplay:
-    """Grove-OLED display (typically 128x64) for session and timer information.
-    
-    Shows: Session status/phase, countdown timer, focus score.
-    Uses luma.oled library for I2C communication (SSD1306 or SH1106).
+    """Grove-OLED display for session and timer information.
+
+    Shows: session status/phase, countdown timer, focus score.
+    Uses the Grove display driver directly via ``grove.display``.
     """
 
     def __init__(self) -> None:
         self._oled_available = False
         self._device = None
-        self._canvas = None
-        self._font = None
         try:
-            serial_module = importlib.import_module("luma.core.interface.serial")
-            render_module = importlib.import_module("luma.core.render")
-            oled_module = importlib.import_module("luma.oled.device")
-            pil_module = importlib.import_module("PIL.ImageFont")
+            grove_display = importlib.import_module("grove.display.base")
+            sh1107g = getattr(grove_display, "SH1107G")
 
-            # Grove-OLED typically at address 0x3C on I2C port 1
-            serial = serial_module.i2c(port=1, address=0x3C)
-            print("[OLED] I2C serial initialized")
-            
-            # Try SSD1306 first (most common), fall back to SH1106 if needed
-            try:
-                self._device = oled_module.ssd1306(serial)
-                print("[OLED] SSD1306 device initialized")
-            except Exception as e:
-                print("[OLED] SSD1306 failed: {}, trying SH1106...".format(e))
-                self._device = oled_module.sh1106(serial)
-                print("[OLED] SH1106 device initialized")
-            
-            self._canvas = render_module.canvas
-            self._font = pil_module.load_default()
+            for address in (0x3C, 0x3E):
+                try:
+                    self._device = sh1107g(address=address)
+                    print("[OLED] Grove SH1107G initialized at 0x{:02X}".format(address))
+                    break
+                except Exception as ex:
+                    print("[OLED] Init retry at 0x{:02X} failed: {}".format(address, ex))
+
+            if self._device is None:
+                raise RuntimeError("Unable to initialize Grove OLED display")
+
+            if hasattr(self._device, "backlight"):
+                try:
+                    self._device.backlight(True)
+                except Exception:
+                    pass
+
             self._oled_available = True
             print("[OLED] Ready to render")
         except Exception as ex:
@@ -173,32 +171,31 @@ class OledSessionDisplay:
             self._oled_available = False
 
     def render(self, session_state: Dict[str, Any], focus_state: Dict[str, Any]) -> None:
-        # Extract session and focus info
         remaining = int(session_state.get("remaining_seconds", 0))
         minutes = remaining // 60
         seconds = remaining % 60
-        
+
         status = session_state.get("status", "stopped")
         phase = session_state.get("phase", "")
         focus_score = int(focus_state.get("score", 0))
-        
-        # Format display lines
+
         state_line = "{} {}".format(status.upper()[:7], phase.upper()[:8])
         timer_line = "{:02d}:{:02d}".format(minutes, seconds)
         focus_line = "Focus: {}%".format(focus_score)
 
         if self._oled_available and self._device is not None:
             try:
-                with self._canvas(self._device) as draw:
-                    # Session status and phase (top)
-                    draw.text((0, 0), state_line, fill=255, font=self._font)
-                    
-                    # Large timer display (middle)
-                    draw.text((0, 20), timer_line, fill=255, font=self._font)
-                    
-                    # Focus score (bottom)
-                    draw.text((0, 48), focus_line, fill=255, font=self._font)
+                if hasattr(self._device, "clear"):
+                    self._device.clear()
+
+                for row, line in enumerate((state_line, timer_line, focus_line)):
+                    if hasattr(self._device, "setCursor"):
+                        self._device.setCursor(row, 0)
+                    if hasattr(self._device, "write"):
+                        self._device.write(line[:16])
             except Exception as ex:
                 print("[OLED] Render error: {} | {} | {} | Exception: {}".format(state_line, timer_line, focus_line, ex))
         else:
             print("[OLED] {} | {} | {}".format(state_line, timer_line, focus_line))
+
+# https://github.com/orji123/Irisoled - future integration

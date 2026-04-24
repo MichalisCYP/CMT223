@@ -26,10 +26,12 @@ class Repository:
                     move INTEGER,
                     button INTEGER,
                     temperature REAL,
-                    humidity REAL
+                    humidity REAL,
+                    distance_cm INTEGER
                 )
                 """
             )
+            self._ensure_column(conn, "environment_log", "distance_cm", "INTEGER")
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS session_event (
@@ -54,12 +56,22 @@ class Repository:
             )
             conn.commit()
 
+    def _ensure_column(
+        self, conn: sqlite3.Connection, table_name: str, column_name: str, column_type: str
+    ) -> None:
+        row_cursor = conn.execute("PRAGMA table_info({})".format(table_name))
+        existing_columns = {row[1] for row in row_cursor.fetchall()}
+        if column_name not in existing_columns:
+            conn.execute(
+                "ALTER TABLE {} ADD COLUMN {} {}".format(table_name, column_name, column_type)
+            )
+
     def write_environment(self, payload: Dict[str, Any]) -> None:
         with self._lock, self._connect() as conn:
             conn.execute(
                 """
-                INSERT INTO environment_log(ts, light, sound, move, button, temperature, humidity)
-                VALUES(:updated_at, :light, :sound, :move, :button, :temperature, :humidity)
+                INSERT INTO environment_log(ts, light, sound, move, button, temperature, humidity, distance_cm)
+                VALUES(:updated_at, :light, :sound, :move, :button, :temperature, :humidity, :distance_cm)
                 """,
                 payload,
             )

@@ -2,7 +2,7 @@
 
 ## Components
 
-- Edge node (Arduino): reads light/sound/PIR/button and sends telemetry.
+- Edge node (Arduino): reads light/sound/PIR/temp-humidity/distance and sends telemetry.
 - Edge CV node (Raspberry Pi CV): captures camera signals and sends focus-related features.
 - Fog node (Raspberry Pi hub): system of record, controller, and local inference/orchestration.
 - Cloud node: cloud-side processing and integration services.
@@ -15,10 +15,11 @@
 flowchart TB
     subgraph EDGE[Edge Layer]
         subgraph ARD[Arduino Sensor Node]
-            ALS[Light Sensor A3]
-            ASD[Sound Sensor A0]
-            APIR[PIR Sensor D2]
-            ABTN[Button D3]
+            ALS[Grove Light Sensor A3]
+            ASD[Grove Sound Sensor A0]
+            APIR[Grove PIR Sensor D2]
+            ADHT[Grove DHT Sensor D5]
+            ADIST[Grove Ultrasonic Ranger D6]
             ABT[USB Serial from Arduino]
         end
 
@@ -30,10 +31,9 @@ flowchart TB
 
     subgraph FOG[Fog Layer]
         H[Pi Hub Controller]
-        HTEMP[Temp and Humidity Sensor D4]
-        HDIST[Distance Sensor GPIO or Grove]
-        HBUZ[Buzzer D8]
-        HDIS[Display I2C or Grove]
+        HBTN[Grove Button D3]
+        HBUZ[Grove Buzzer D8]
+        HDIS[Grove Display I2C]
         DB[(SQLite)]
     end
 
@@ -51,13 +51,13 @@ flowchart TB
     ALS --> ABT
     ASD --> ABT
     APIR --> ABT
-    ABTN --> ABT
+    ADHT --> ABT
+    ADIST --> ABT
     CAM --> CVP
 
     ABT -->|USB Serial Telemetry| H
     CVP -->|HTTP POST Focus Signals| H
-    HTEMP --> H
-    HDIST --> H
+    HBTN --> H
 
     H --> DB
     H --> HBUZ
@@ -72,7 +72,7 @@ flowchart TB
 
 ## Fog Node Modules (Pi Hub)
 
-- sensor_ingest: parse Arduino + local sensor input.
+- sensor_ingest: parse Arduino telemetry + local button input.
 - focus_engine: compute focus score.
 - session_manager: Pomodoro/session state machine.
 - alert_manager: buzzer/display/client-app prompts.
@@ -141,8 +141,8 @@ MVP decisions are finalized in `../1. Requirements/Requirements-and-Plan.md`.
 
 ### Board Allocation
 
-- Arduino: light, sound, PIR, button, USB serial telemetry.
-- Pi hub: distance sensor, buzzer, display, local control.
+- Arduino: Grove light, sound, PIR, temperature/humidity, distance, USB serial telemetry.
+- Pi hub: Grove button, Grove buzzer, Grove display, local control.
 - Pi CV node: camera and CV processing.
 
 ### Hardware Topology
@@ -150,18 +150,18 @@ MVP decisions are finalized in `../1. Requirements/Requirements-and-Plan.md`.
 ```mermaid
 flowchart TB
     subgraph ARD[Arduino Node]
-        ALS[Light Sensor A3]
-        ASD[Sound Sensor A0/A1]
-        APIR[PIR Sensor D2]
-        ABTN[Button D3]
+        ALS[Grove Light Sensor A3]
+        ASD[Grove Sound Sensor A0/A1]
+        APIR[Grove PIR Sensor D2]
+        ADHT[Grove DHT Sensor D5]
+        ADIST[Grove Ultrasonic Ranger D6]
         ABT[USB Serial from Arduino]
     end
 
     subgraph HUB[Raspberry Pi Hub]
-        HTEMP[Temperature/Humidity D4]
-        HDIST[Distance Sensor]
-        HBUZ[Buzzer D8]
-        HDIS[Display I2C/Grove]
+        HBTN[Grove Button D3]
+        HBUZ[Grove Buzzer D8]
+        HDIS[Grove Display I2C]
     end
 
     subgraph CV[Raspberry Pi CV Node]
@@ -174,18 +174,18 @@ flowchart TB
 
 ### Sensor And Actuator Table
 
-| Device                          | Board                | Suggested Pin                                   | Voltage / Interface                          | Sampling Rate                  | Purpose                                                        |
-| ------------------------------- | -------------------- | ----------------------------------------------- | -------------------------------------------- | ------------------------------ | -------------------------------------------------------------- |
-| Light sensor                    | Arduino              | A3                                              | Analog, typically 5V on Grove/Arduino side   | 1 Hz                           | Measure ambient lighting quality                               |
-| Sound sensor                    | Arduino              | A0 or A1                                        | Analog, typically 5V on Arduino side         | 2 Hz to 5 Hz                   | Estimate environmental noise and distraction level             |
-| PIR movement sensor             | Arduino              | D2                                              | Digital input, 5V logic                      | 2 Hz                           | Detect movement near the desk                                  |
-| Button or LED button input      | Arduino              | D3                                              | Digital input, 5V logic                      | event-driven                   | Manual start, pause, acknowledgement, or intervention controls |
-| USB serial connection           | Arduino              | USB port                                        | Native USB serial                            | continuous                     | Send telemetry to the hub                                      |
-| Temperature and humidity sensor | Raspberry Pi hub     | D4 on GrovePi or equivalent                     | Digital Grove / DHT / I2C depending on model | 0.2 Hz to 0.33 Hz              | Measure room comfort conditions                                |
-| Distance sensor                 | Raspberry Pi hub     | Grove ultrasonic port or GPIO trigger/echo pair | Digital GPIO or Grove                        | 1 Hz to 2 Hz                   | Presence estimation and desk distance monitoring               |
-| Buzzer                          | Raspberry Pi hub     | D8 on GrovePi or GPIO output                    | Digital output                               | event-driven                   | Gentle audio interventions                                     |
-| Display screen                  | Raspberry Pi hub     | I2C or Grove display port                       | I2C / Grove                                  | update on state change or 1 Hz | Local feedback and timer display                               |
-| Camera                          | Raspberry Pi CV node | CSI camera connector or USB                     | CSI / USB                                    | 5 fps to 15 fps for MVP        | Eye tracking, head pose, face presence                         |
+| Device                          | Board                | Suggested Pin               | Voltage / Interface            | Sampling Rate                  | Purpose                                                        |
+| ------------------------------- | -------------------- | --------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------------------- |
+| Light sensor                    | Arduino              | A3                          | Grove analog sensor            | 1 Hz                           | Measure ambient lighting quality                               |
+| Sound sensor                    | Arduino              | A0 or A1                    | Grove analog sensor            | 2 Hz to 5 Hz                   | Estimate environmental noise and distraction level             |
+| PIR movement sensor             | Arduino              | D2                          | Grove digital sensor           | 2 Hz                           | Detect movement near the desk                                  |
+| Button or LED button input      | Raspberry Pi hub     | Grove D3                    | Digital input, 3.3V Grove      | event-driven                   | Manual start, pause, acknowledgement, or intervention controls |
+| USB serial connection           | Arduino              | USB port                    | Native USB serial              | continuous                     | Send telemetry to the hub                                      |
+| Temperature and humidity sensor | Arduino              | D5                          | Grove DHT digital interface    | 0.2 Hz to 0.33 Hz              | Measure room comfort conditions                                |
+| Distance sensor                 | Arduino              | D6                          | Grove ultrasonic ranger signal | 1 Hz to 2 Hz                   | Presence estimation and desk distance monitoring               |
+| Buzzer                          | Raspberry Pi hub     | D8 on GrovePi               | Digital output                 | event-driven                   | Gentle audio interventions                                     |
+| Display screen                  | Raspberry Pi hub     | I2C Grove display port      | I2C / Grove                    | update on state change or 1 Hz | Local feedback and timer display                               |
+| Camera                          | Raspberry Pi CV node | CSI camera connector or USB | CSI / USB                      | 5 fps to 15 fps for MVP        | Eye tracking, head pose, face presence                         |
 
 ### Suggested Pin Plan (MVP)
 
@@ -194,12 +194,12 @@ flowchart TB
 - `A3`: light sensor
 - `A0`: sound sensor
 - `D2`: PIR motion sensor
-- `D3`: button input
+- `D5`: Grove DHT sensor
+- `D6`: Grove ultrasonic ranger
 - USB: Arduino serial connection to the Pi
 
 #### Raspberry Pi Hub
 
-- `D8` on GrovePi or equivalent GPIO: buzzer
-- `D4` on GrovePi or equivalent sensor port: temperature and humidity sensor if attached here
-- distance sensor: Grove ultrasonic port or assigned GPIO pair
-- display: I2C bus or Grove LCD port
+- `D8`: Grove buzzer
+- `D3`: Grove button
+- display: Grove I2C display port

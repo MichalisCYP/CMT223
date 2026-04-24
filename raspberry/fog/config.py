@@ -12,6 +12,10 @@ class FogConfig:
     focus_update_seconds: float = float(os.getenv("FOG_FOCUS_UPDATE_SECONDS", "2.0"))
     display_update_seconds: float = float(os.getenv("FOG_DISPLAY_UPDATE_SECONDS", "1.0"))
     session_tick_seconds: float = float(os.getenv("FOG_SESSION_TICK_SECONDS", "1.0"))
+    button_poll_seconds: float = float(os.getenv("FOG_BUTTON_POLL_SECONDS", "0.05"))
+    button_debounce_seconds: float = float(os.getenv("FOG_BUTTON_DEBOUNCE_SECONDS", "0.05"))
+    button_long_press_seconds: float = float(os.getenv("FOG_BUTTON_LONG_PRESS_SECONDS", "1.2"))
+    button_port: int = int(os.getenv("FOG_BUTTON_PORT", "3"))
 
     session_minutes: int = int(os.getenv("FOG_SESSION_MINUTES", "25"))
     break_minutes: int = int(os.getenv("FOG_BREAK_MINUTES", "5"))
