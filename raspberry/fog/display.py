@@ -137,7 +137,7 @@ class OledSessionDisplay:
     """Grove-OLED display (typically 128x64) for session and timer information.
     
     Shows: Session status/phase, countdown timer, focus score.
-    Uses luma.oled library for I2C communication (SSD1306 or SH1106).
+    Uses luma.oled library for I2C communication (SSD1306).
     """
 
     def __init__(self) -> None:
@@ -155,14 +155,9 @@ class OledSessionDisplay:
             serial = serial_module.i2c(port=1, address=0x3C)
             print("[OLED] I2C serial initialized")
             
-            # Try SSD1306 first (most common), fall back to SH1106 if needed
-            try:
-                self._device = oled_module.ssd1306(serial)
-                print("[OLED] SSD1306 device initialized")
-            except Exception as e:
-                print("[OLED] SSD1306 failed: {}, trying SH1106...".format(e))
-                self._device = oled_module.sh1106(serial)
-                print("[OLED] SH1106 device initialized")
+            # SSD1306 initialization
+            self._device = oled_module.ssd1306(serial)
+            print("[OLED] SSD1306 device initialized")
             
             self._canvas = render_module.canvas
             self._font = pil_module.load_default()
@@ -202,3 +197,5 @@ class OledSessionDisplay:
                 print("[OLED] Render error: {} | {} | {} | Exception: {}".format(state_line, timer_line, focus_line, ex))
         else:
             print("[OLED] {} | {} | {}".format(state_line, timer_line, focus_line))
+
+# https://github.com/orji123/Irisoled - future integration

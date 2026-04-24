@@ -15,7 +15,7 @@ inline String formatTelemetryPayload(const EnvironmentSample& sample,
   payload += ",\"move\":";
   payload += sample.motion;
   payload += ",\"button\":";
-  payload += buttonState ? 1 : 0;
+  payload += buttonState ? 0 : 1;
   payload += "}";
   return payload;
 }
