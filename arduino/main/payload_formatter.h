@@ -4,7 +4,8 @@
 #include <Arduino.h>
 #include "environment_sensors.h"
 
-inline String formatTelemetryPayload(const EnvironmentSample& sample) {
+inline String formatTelemetryPayload(const EnvironmentSample& sample,
+                                     bool buttonState) {
   String payload = "{";
   payload += "\"v\":1";
   payload += ",\"light\":";
@@ -19,6 +20,8 @@ inline String formatTelemetryPayload(const EnvironmentSample& sample) {
   payload += sample.humidity;
   payload += ",\"distance_cm\":";
   payload += sample.distanceCm;
+  payload += ",\"button\":";
+  payload += buttonState ? 1 : 0;
   payload += "}";
   return payload;
 }
