@@ -21,7 +21,7 @@ inline String formatTelemetryPayload(const EnvironmentSample& sample,
   payload += ",\"distance_cm\":";
   payload += sample.distanceCm;
   payload += ",\"button\":";
-  payload += buttonState ? 1 : 0;
+  payload += buttonState ? 0 : 1;
   payload += "}";
   return payload;
 }
