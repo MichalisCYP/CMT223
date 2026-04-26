@@ -50,15 +50,14 @@ class SessionManager:
         return self.snapshot()
 
     def handle_button_event(self, event_name: str, now_iso: str) -> SessionSnapshot:
-        # MVP mapping: short press cycles start/pause/resume, long press stops.
-        if event_name == "SHORT":
+        event = event_name.strip().upper()
+
+        # MVP mapping: each click toggles the session between start and stop.
+        if event in {"SHORT", "CLICK", "TOGGLE"}:
             if self._status == "stopped":
                 return self.start(now_iso)
-            if self._status == "running":
-                return self.pause()
-            if self._status == "paused":
-                return self.resume()
-        if event_name == "LONG":
+            return self.stop()
+        if event == "LONG":
             return self.stop()
         return self.snapshot()
 

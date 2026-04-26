@@ -33,7 +33,7 @@ def main() -> int:
         ArduinoIngestWorker(config, state, repository),
         FogButtonWorker(config, state, repository, session_manager),
         SessionWorker(config, state, repository, session_manager),
-        FocusWorker(config, state, repository),
+        # FocusWorker(config, state, repository),
         # AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
     ]

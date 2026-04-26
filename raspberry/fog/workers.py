@@ -143,7 +143,6 @@ class FogButtonWorker(Worker):
         self._state = state
         self._repository = repository
         self._manager = manager
-        self._pressed_at = 0.0
         self._last_state = 0
         self._last_change = 0.0
 
@@ -173,21 +172,16 @@ class FogButtonWorker(Worker):
                 self._last_state = raw_state
 
                 if raw_state == 1:
-                    self._pressed_at = now
+                    print("Button pressed: toggling session")
                     self._state.update_environment(button=1)
                     self._repository.write_environment(self._state.snapshot()["environment"])
+
+                    snapshot = self._manager.handle_button_event("CLICK", utc_now_iso())
+                    self._persist_session(snapshot)
                     continue
 
                 self._state.update_environment(button=0)
                 self._repository.write_environment(self._state.snapshot()["environment"])
-
-                press_seconds = now - self._pressed_at
-                if press_seconds >= self._config.button_long_press_seconds:
-                    snapshot = self._manager.handle_button_event("LONG", utc_now_iso())
-                    self._persist_session(snapshot)
-                elif press_seconds > 0:
-                    snapshot = self._manager.handle_button_event("SHORT", utc_now_iso())
-                    self._persist_session(snapshot)
 
 
 class FocusWorker(Worker):
