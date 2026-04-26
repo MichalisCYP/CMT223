@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib
 import json
 from threading import Event, Thread
-from time import monotonic
 
 from .config import FogConfig
 from .repository import Repository
@@ -61,9 +60,6 @@ class ArduinoIngestWorker(Worker):
         if not fields:
             return
 
-        if "BTN_EVENT" in fields:
-            self._state.set_button_event(fields["BTN_EVENT"].upper())
-
         updates = {}
         if "LIGHT" in fields:
             updates["light"] = int(float(fields["LIGHT"]))
@@ -79,6 +75,8 @@ class ArduinoIngestWorker(Worker):
             updates["distance_cm"] = int(float(fields["DISTANCE_CM"]))
         elif "DISTANCE" in fields:
             updates["distance_cm"] = int(float(fields["DISTANCE"]))
+        if "BUTTON" in fields:
+            updates["button"] = 1 if int(float(fields["BUTTON"])) > 0 else 0
 
         if updates:
             self._state.update_environment(**updates)
@@ -111,6 +109,7 @@ class SessionWorker(Worker):
         self._state = state
         self._repository = repository
         self._manager = manager
+        self._last_button_state = 0
 
     def _persist_snapshot(self) -> None:
         snap = self._manager.snapshot()
@@ -126,62 +125,15 @@ class SessionWorker(Worker):
     def run(self) -> None:
         self._persist_snapshot()
         while not self.stop_event.wait(self._config.session_tick_seconds):
+            environment = self._state.snapshot()["environment"]
+            button_state = int(environment.get("button", 0))
+            if button_state == 1 and self._last_button_state == 0:
+                snapshot = self._manager.handle_button_event("CLICK", utc_now_iso())
+                self._persist_session(snapshot)
+            self._last_button_state = button_state
+
             self._manager.tick()
             self._persist_snapshot()
-
-
-class FogButtonWorker(Worker):
-    def __init__(
-        self,
-        config: FogConfig,
-        state: SharedState,
-        repository: Repository,
-        manager: SessionManager,
-    ) -> None:
-        super().__init__(name="fog-button-worker")
-        self._config = config
-        self._state = state
-        self._repository = repository
-        self._manager = manager
-        self._last_state = 0
-        self._last_change = 0.0
-
-    def _persist_session(self, snapshot) -> None:
-        self._state.set_session(
-            status=snapshot.status,
-            phase=snapshot.phase,
-            remaining_seconds=snapshot.remaining_seconds,
-            started_at=snapshot.started_at,
-        )
-        self._repository.write_session_event(self._state.snapshot()["session"])
-
-    def run(self) -> None:
-        while not self.stop_event.wait(self._config.button_poll_seconds):
-            now = monotonic()
-            try:
-                grovepi = importlib.import_module("grovepi")
-                raw_state = int(grovepi.digitalRead(self._config.button_port))
-            except Exception:
-                continue
-
-            if raw_state != self._last_state:
-                if now - self._last_change < self._config.button_debounce_seconds:
-                    continue
-
-                self._last_change = now
-                self._last_state = raw_state
-
-                if raw_state == 1:
-                    print("Button pressed: toggling session")
-                    self._state.update_environment(button=1)
-                    self._repository.write_environment(self._state.snapshot()["environment"])
-
-                    snapshot = self._manager.handle_button_event("CLICK", utc_now_iso())
-                    self._persist_session(snapshot)
-                    continue
-
-                self._state.update_environment(button=0)
-                self._repository.write_environment(self._state.snapshot()["environment"])
 
 
 class FocusWorker(Worker):

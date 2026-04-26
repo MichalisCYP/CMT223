@@ -13,7 +13,6 @@ from .workers import (
     ArduinoIngestWorker,
     AwsIotPublisherWorker,
     DisplayWorker,
-    FogButtonWorker,
     FocusWorker,
     SessionWorker,
 )
@@ -31,7 +30,6 @@ def main() -> int:
 
     workers = [
         ArduinoIngestWorker(config, state, repository),
-        FogButtonWorker(config, state, repository, session_manager),
         SessionWorker(config, state, repository, session_manager),
         # FocusWorker(config, state, repository),
         # AwsIotPublisherWorker(config, repository),

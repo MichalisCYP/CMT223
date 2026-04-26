@@ -42,7 +42,6 @@ class SharedState:
         self._environment = EnvironmentState(updated_at=utc_now_iso())
         self._session = SessionState(updated_at=utc_now_iso())
         self._focus = FocusState(updated_at=utc_now_iso())
-        self._last_button_event = ""
 
     def update_environment(self, **kwargs: Any) -> None:
         with self._lock:
@@ -50,16 +49,6 @@ class SharedState:
                 if hasattr(self._environment, key):
                     setattr(self._environment, key, value)
             self._environment.updated_at = utc_now_iso()
-
-    def set_button_event(self, event_name: str) -> None:
-        with self._lock:
-            self._last_button_event = event_name
-
-    def consume_button_event(self) -> str:
-        with self._lock:
-            event_name = self._last_button_event
-            self._last_button_event = ""
-            return event_name
 
     def set_session(self, status: str, phase: str, remaining_seconds: int, started_at: str) -> None:
         with self._lock:
