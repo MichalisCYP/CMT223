@@ -109,7 +109,14 @@ class SessionWorker(Worker):
         self._state = state
         self._repository = repository
         self._manager = manager
-        self._last_button_state = 0
+        self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
+        self._last_logged_remaining = -1
+
+    @staticmethod
+    def _format_mmss(total_seconds: int) -> str:
+        minutes = max(0, int(total_seconds)) // 60
+        seconds = max(0, int(total_seconds)) % 60
+        return "{:02d}:{:02d}".format(minutes, seconds)
 
     def _persist_snapshot(self) -> None:
         snap = self._manager.snapshot()
@@ -127,12 +134,31 @@ class SessionWorker(Worker):
         while not self.stop_event.wait(self._config.session_tick_seconds):
             environment = self._state.snapshot()["environment"]
             button_state = int(environment.get("button", 0))
+
+            # Toggle only on the rising edge so a held button does not repeatedly toggle.
             if button_state == 1 and self._last_button_state == 0:
-                snapshot = self._manager.handle_button_event("CLICK", utc_now_iso())
-                self._persist_session(snapshot)
+                previous = self._manager.snapshot()
+                current = self._manager.handle_button_event("CLICK", utc_now_iso())
+                if previous.status != "running" and current.status == "running":
+                    print(
+                        "Session started: started_at={}, timer={}".format(
+                            current.started_at,
+                            self._format_mmss(current.remaining_seconds),
+                        )
+                    )
+                self._persist_snapshot()
             self._last_button_state = button_state
 
-            self._manager.tick()
+            tick_snapshot = self._manager.tick()
+            if tick_snapshot.status == "running" and tick_snapshot.remaining_seconds != self._last_logged_remaining:
+                print(
+                    "Session timer: phase={}, remaining={} ({}s)".format(
+                        tick_snapshot.phase,
+                        self._format_mmss(tick_snapshot.remaining_seconds),
+                        tick_snapshot.remaining_seconds,
+                    )
+                )
+                self._last_logged_remaining = tick_snapshot.remaining_seconds
             self._persist_snapshot()
 
 

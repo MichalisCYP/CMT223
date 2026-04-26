@@ -55,10 +55,13 @@ class OledSessionDisplay:
     def __init__(self) -> None:
         self._oled_available = False
         self._device = None
+        self._font_small = None
+        self._font_timer = None
         try:
             serial_module = importlib.import_module("luma.core.interface.serial")
             render_module = importlib.import_module("luma.core.render")
             oled_module = importlib.import_module("luma.oled.device")
+            imagefont_module = importlib.import_module("PIL.ImageFont")
             
             # Detected address 0x3C on Port 1
             serial = serial_module.i2c(port=1, address=0x3C)
@@ -68,25 +71,39 @@ class OledSessionDisplay:
             self._device = oled_module.sh1107(serial, width=128, height=128, rotate=0)
             
             self._canvas = render_module.canvas
+            self._font_small = imagefont_module.load_default()
+            try:
+                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 28)
+            except Exception:
+                self._font_timer = imagefont_module.load_default()
             self._oled_available = True
             print("[OLED] SH1107G initialized (Buffered at 128x128)")
         except Exception as ex:
             print(f"[OLED] Init failed: {ex}")
 
+    @staticmethod
+    def _format_timer(remaining_seconds: Any) -> str:
+        try:
+            seconds = max(0, int(float(remaining_seconds)))
+        except (TypeError, ValueError):
+            seconds = 0
+        return "{:02d}:{:02d}".format(seconds // 60, seconds % 60)
+
     def render(self, session_state: Dict[str, Any], focus_state: Dict[str, Any]):
         if not self._oled_available: return
         
         status = session_state.get("status", "STOPPED").upper()
-        timer = "{:02d}:{:02d}".format(int(session_state.get("remaining_seconds", 0)) // 60, 
-                                       int(session_state.get("remaining_seconds", 0)) % 60)
+        timer = self._format_timer(session_state.get("remaining_seconds", 0))
+        phase = str(session_state.get("phase", "focus")).upper()
         focus = f"Focus: {focus_state.get('score', 0)}%"
 
         try:
             with self._canvas(self._device) as draw:
                 # IMPORTANT: Only draw within the 96x96 Active Area.
                 # Data outside 96x96 will not be visible on your physical panel.
-                draw.text((0, 0), status[:12], fill="white")
-                draw.text((20, 35), timer, fill="white")
-                draw.text((0, 75), focus, fill="white")
+                draw.text((0, 0), status[:12], fill="white", font=self._font_small)
+                draw.text((0, 14), phase[:12], fill="white", font=self._font_small)
+                draw.text((6, 34), timer, fill="white", font=self._font_timer)
+                draw.text((0, 82), focus[:20], fill="white", font=self._font_small)
         except Exception as ex:
             print(f"[OLED] Render Error: {ex}")
