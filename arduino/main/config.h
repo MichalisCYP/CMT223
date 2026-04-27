@@ -13,7 +13,7 @@ constexpr uint8_t PIN_DHT = 5;     // Grove DHT sensor signal
 constexpr uint8_t PIN_DIST = 6;    // Grove ultrasonic ranger signal
 
 constexpr unsigned long SERIAL_WAIT_TIMEOUT_MS = 3000;
-constexpr unsigned long TELEMETRY_INTERVAL_MS = 1000;
+constexpr unsigned long TELEMETRY_INTERVAL_MS = 2000;
 constexpr unsigned long DISTANCE_TIMEOUT_US = 30000;
 
 constexpr long SERIAL_BAUD = 9600;

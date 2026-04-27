@@ -100,7 +100,8 @@ buzzer_state = {'State': False}
 rfcomm_data = {'rfcomm_payload': ''}
 
 # Publishing interval (seconds). A lower interval might stress the sensor or device.
-INTERVAL = 3
+# Use 2s to match Arduino telemetry and provide a safe DHT read interval.
+INTERVAL = 2
 next_reading = time.time()
 next_serial_retry = 0
 serial_fd = None
@@ -180,8 +181,7 @@ try:
         # Read temperature and humidity from DHT sensor
         [temp, humidity] = grovepi.dht(sensor, blue)
 
-        # Short delay to ensure stable readings (especially for DHT sensors)
-        time.sleep(3)
+        # Short delay previously used here was removed; interval logic handles pacing
         print(u"Temperature: {:g}\u00b0C, Humidity: {:g}%".format(temp, humidity))
         print('RFCOMM payload: {}'.format(rfcomm_data['rfcomm_payload']))
 
