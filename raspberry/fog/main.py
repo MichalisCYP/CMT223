@@ -31,7 +31,7 @@ def main() -> int:
     workers = [
         ArduinoIngestWorker(config, state, repository),
         SessionWorker(config, state, repository, session_manager),
-        # FocusWorker(config, state, repository),
+        FocusWorker(config, state, repository),
         # AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
     ]
