@@ -4,3 +4,5 @@
 *.venvCV/
 __pycache__/
 *.pyc
+piper/
+whisper.cpp/
