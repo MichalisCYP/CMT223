@@ -12,16 +12,5 @@ luma.oled>=3.0
 luma.core>=1.0
 pillow>=9.0
 
-# SQLite is built-in to Python
-
 # AWS IoT Core publishing
-boto3>=1.34
-
-# --- AI Agent / Local Assistant (optional) ---
-sounddevice
-numpy
-scipy
-Pillow
-openwakeword
-ollama
-requests
+awsiotsdk>=1.22.0

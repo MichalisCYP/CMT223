@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import time
 from threading import Event, Thread
 
 from .config import FogConfig
@@ -243,11 +244,24 @@ class DisplayWorker(Worker):
 
 
 class AwsIotPublisherWorker(Worker):
+    """
+    Publishes sensor data to AWS IoT Core using MQTT (v5 with fallback to v1).
+    
+    Requires certificate files and proper environment configuration:
+    - FOG_AWS_IOT_ENABLED=true
+    - FOG_AWS_IOT_ENDPOINT=<endpoint>
+    - FOG_AWS_IOT_CERT_PATH=<path-to-cert.pem>
+    - FOG_AWS_IOT_KEY_PATH=<path-to-private.key>
+    - FOG_AWS_IOT_ROOT_CA_PATH=<path-to-root-CA.crt>
+    """
+    
     def __init__(self, config: FogConfig, repository: Repository) -> None:
         super().__init__(name="aws-iot-publisher")
         self._config = config
         self._repository = repository
-        self._client = None
+        self._connection = None  # MQTT v1 connection
+        self._client = None      # MQTT v5 client
+        self._device_id = "focusflow-fog-01"  # Identifies this fog node (like "cv-node-01" in basicCV.py)
         self._last_ids = {
             "environment": 0,
             "session": 0,
@@ -255,26 +269,117 @@ class AwsIotPublisherWorker(Worker):
         }
 
     def _is_enabled(self) -> bool:
-        return bool(self._config.aws_iot_enabled and self._config.aws_iot_endpoint and self._config.aws_iot_topic_prefix)
+        """Check if AWS IoT publishing is properly configured."""
+        required = [
+            self._config.aws_iot_enabled,
+            self._config.aws_iot_endpoint,
+            self._config.aws_iot_topic_prefix,
+            self._config.aws_iot_cert_path,
+            self._config.aws_iot_key_path,
+        ]
+        return all(required)
 
-    def _ensure_client(self) -> bool:
-        if self._client is not None:
-            return True
+    def _connect_mqtt5(self) -> bool:
+        """Try MQTT v5 connection (preferred for modern AWS SDK)."""
         try:
-            boto3 = importlib.import_module("boto3")
-            self._client = boto3.client(
-                "iot-data",
-                region_name=self._config.aws_iot_region,
-                endpoint_url="https://{}".format(self._config.aws_iot_endpoint),
+            mqtt5_builder = importlib.import_module("awsiot.mqtt5_client_builder")
+            mqtt5 = importlib.import_module("awscrt.mqtt5")
+
+            self._client = mqtt5_builder.mtls_from_path(
+                endpoint=self._config.aws_iot_endpoint,
+                cert_filepath=self._config.aws_iot_cert_path,
+                pri_key_filepath=self._config.aws_iot_key_path,
+                ca_filepath=self._config.aws_iot_root_ca_path,
+                client_id=self._config.aws_iot_client_id,
             )
-            print("AWS IoT publisher connected to {}".format(self._config.aws_iot_endpoint))
+            self._client.start()
+            time.sleep(1)  # Give it time to connect
+            print("[aws] Connected via MQTT v5 to {}".format(self._config.aws_iot_endpoint))
             return True
         except Exception as ex:
-            print("AWS IoT client unavailable: {}".format(ex))
+            print("[aws] MQTT v5 failed ({}), trying v1...".format(ex))
             self._client = None
             return False
 
+    def _connect_mqtt1(self) -> bool:
+        """Fallback to MQTT v1 connection."""
+        try:
+            mqtt_builder = importlib.import_module("awsiot.mqtt_connection_builder")
+            
+            self._connection = mqtt_builder.mtls_from_path(
+                endpoint=self._config.aws_iot_endpoint,
+                cert_filepath=self._config.aws_iot_cert_path,
+                pri_key_filepath=self._config.aws_iot_key_path,
+                ca_filepath=self._config.aws_iot_root_ca_path,
+                client_id=self._config.aws_iot_client_id,
+                clean_session=False,
+                keep_alive_secs=30,
+            )
+            future = self._connection.connect()
+            future.result(timeout=10)
+            print("[aws] Connected via MQTT v1 to {}".format(self._config.aws_iot_endpoint))
+            return True
+        except Exception as ex:
+            print("[aws] MQTT v1 connection failed: {}".format(ex))
+            self._connection = None
+            return False
+
+    def _ensure_connected(self) -> bool:
+        """Establish connection to AWS IoT Core (try v5, fallback to v1)."""
+        if self._client is not None or self._connection is not None:
+            return True
+
+        if self._connect_mqtt5():
+            return True
+        
+        if self._connect_mqtt1():
+            return True
+        
+        return False
+
+    def _publish(self, topic: str, payload: dict) -> bool:
+        """
+        Non-blocking publish to a topic.
+        Uses threading to avoid blocking the main loop.
+        """
+        def _do_publish():
+            try:
+                message_json = json.dumps(payload)
+                
+                if self._client:
+                    # MQTT v5
+                    mqtt5 = importlib.import_module("awscrt.mqtt5")
+                    self._client.publish(
+                        mqtt5.PublishPacket(
+                            topic=topic,
+                            payload=message_json.encode("utf-8"),
+                            qos=mqtt5.QoS.AT_LEAST_ONCE,
+                        )
+                    )
+                elif self._connection:
+                    # MQTT v1
+                    qos = importlib.import_module("awscrt.mqtt").QoS
+                    self._connection.publish(
+                        topic=topic,
+                        payload=message_json,
+                        qos=qos.AT_LEAST_ONCE,
+                    )
+                else:
+                    return False
+                
+                return True
+            except Exception as ex:
+                print("[aws] Publish to {} failed: {}".format(topic, ex))
+                return False
+
+        # Run publish in background thread to avoid blocking
+        thread = Thread(target=_do_publish, daemon=True)
+        thread.start()
+        return True
+
     def _publish_if_new(self, kind: str, row: dict | None) -> None:
+        """Publish only if we have a new row (higher ID than last sent). 
+        Follows basicCV.py pattern with device_id and timestamp."""
         if row is None:
             return
 
@@ -283,28 +388,59 @@ class AwsIotPublisherWorker(Worker):
             return
 
         topic = "{}/{}".format(self._config.aws_iot_topic_prefix.rstrip("/"), kind)
+        
+        # Build payload similar to basicCV.py: flat structure with device_id and timestamp
         message = {
-            "source": "focusflow-fog",
+            "device_id": self._device_id,
+            "timestamp": row.get("ts"),  # Already ISO format from database
             "type": kind,
-            "payload": row,
+            "id": row_id,
         }
-        self._client.publish(topic=topic, qos=1, payload=json.dumps(message).encode("utf-8"))
-        self._last_ids[kind] = row_id
+        # Add all other fields from the row (e.g., light, sound, score, confidence, etc.)
+        for key, value in row.items():
+            if key not in ("id", "ts"):
+                message[key] = value
+        
+        if self._publish(topic, message):
+            self._last_ids[kind] = row_id
+            print("[aws] Published {} (id={}) to {}".format(kind, row_id, topic))
+
+    def _disconnect(self) -> None:
+        """Clean disconnect from AWS IoT Core."""
+        try:
+            if self._client:
+                self._client.stop()
+            elif self._connection:
+                self._connection.disconnect()
+        except Exception as ex:
+            print("[aws] Disconnect error: {}".format(ex))
+        finally:
+            self._client = None
+            self._connection = None
 
     def run(self) -> None:
+        """Main loop: connect and publish sensor data periodically."""
         if not self._is_enabled():
-            print("AWS IoT publisher is disabled. Set FOG_AWS_IOT_ENABLED=true and endpoint/topic env vars to enable.")
+            print("[aws] AWS IoT publisher disabled. Set FOG_AWS_IOT_ENABLED=true and cert paths.")
             return
 
-        while not self.stop_event.wait(self._config.aws_iot_publish_seconds):
-            if not self._ensure_client():
-                self.stop_event.wait(self._config.reconnect_seconds)
-                continue
+        try:
+            while not self.stop_event.wait(self._config.aws_iot_publish_seconds):
+                if not self._ensure_connected():
+                    self.stop_event.wait(self._config.reconnect_seconds)
+                    continue
 
-            try:
-                self._publish_if_new("environment", self._repository.latest_environment())
-                self._publish_if_new("session", self._repository.latest_session_event())
-                self._publish_if_new("focus", self._repository.latest_focus())
-            except Exception as ex:
-                print("AWS IoT publish failed: {}".format(ex))
-                self._client = None
+                try:
+                    self._publish_if_new("environment", self._repository.latest_environment())
+                    self._publish_if_new("session", self._repository.latest_session_event())
+                    self._publish_if_new("focus", self._repository.latest_focus())
+                except Exception as ex:
+                    print("[aws] Publish cycle failed: {}".format(ex))
+                    # Force reconnect on error
+                    self._disconnect()
+
+        except KeyboardInterrupt:
+            print("[aws] Shutting down...")
+        finally:
+            self._disconnect()
+            print("[aws] Publisher stopped.")
