@@ -4,7 +4,10 @@
 *.venvCV/
 __pycache__/
 *.pyc
-piper/
-whisper.cpp/
 *.env
 aws_iot/
+raspberry-1-central-Policy
+rasperry-1-central.cert.pem
+raspberry-1-central.private.key
+root-CA.pem
+start.sh
