@@ -12,8 +12,10 @@ from .state import SharedState
 from .workers import (
     ArduinoIngestWorker,
     AwsIotPublisherWorker,
+    ButtonAudioWorker,
     DisplayWorker,
     FocusWorker,
+    GroqWorker,
     SessionWorker,
 )
 
@@ -34,6 +36,8 @@ def main() -> int:
         FocusWorker(config, state, repository),
         AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
+        ButtonAudioWorker(config, repository),
+        GroqWorker(config, repository)
     ]
 
     for worker in workers:
