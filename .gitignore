@@ -6,4 +6,3 @@ __pycache__/
 *.pyc
 piper/
 whisper.cpp/
-aws_iot/
