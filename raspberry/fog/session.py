@@ -10,7 +10,6 @@ class SessionSnapshot:
     phase: str
     remaining_seconds: int
     started_at: str
-    led_bars: int = 0
 
 
 class SessionManager:
@@ -71,7 +70,7 @@ class SessionManager:
         if elapsed <= 0:
             return self.snapshot()
 
-        self._last_tick += elapsed
+        self._last_tick = now
         self._remaining_seconds = max(0, self._remaining_seconds - elapsed)
         if self._remaining_seconds == 0:
             if self._phase == "focus":
@@ -84,15 +83,9 @@ class SessionManager:
         return self.snapshot()
 
     def snapshot(self) -> SessionSnapshot:
-        led_bars = 0
-        if self._status in ("running", "paused") and self._phase == "focus":
-            elapsed = self._focus_seconds - self._remaining_seconds
-            led_bars = max(0, 10 - int(elapsed // 150))
-
         return SessionSnapshot(
             status=self._status,
             phase=self._phase,
             remaining_seconds=self._remaining_seconds,
             started_at=self._started_at,
-            led_bars=led_bars,
         )
