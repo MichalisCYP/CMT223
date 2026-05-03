@@ -112,6 +112,7 @@ class SessionWorker(Worker):
         self._manager = manager
         self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
         self._last_logged_remaining = -1
+        self._last_led_bars = -1
 
         self._has_ledbar = False
         try:
@@ -126,10 +127,13 @@ class SessionWorker(Worker):
     def _render_ledbar(self, snap) -> None:
         if not self._has_ledbar:
             return
+        if snap.led_bars == self._last_led_bars:
+            return
         try:
             self._grovepi.ledBar_setLevel(self._ledbar_pin, snap.led_bars)
-        except Exception:
-            pass
+            self._last_led_bars = snap.led_bars
+        except Exception as ex:
+            print("[LEDBAR] Render failed: {}".format(ex))
 
     @staticmethod
     def _format_mmss(total_seconds: int) -> str:
