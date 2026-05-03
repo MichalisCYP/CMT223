@@ -261,7 +261,7 @@ class AwsIotPublisherWorker(Worker):
         self._repository = repository
         self._connection = None  # MQTT v1 connection
         self._client = None      # MQTT v5 client
-        self._device_id = "focusflow-fog-01"  # Identifies this fog node (like "cv-node-01" in basicCV.py)
+        self._device_id = "hub-01"  # Identifies this fog node for AWS
         self._last_ids = {
             "environment": 0,
             "session": 0,
