@@ -6,4 +6,4 @@ __pycache__/
 *.pyc
 piper/
 whisper.cpp/
-raspberry2 copy/
+node_modules/FocusFlowDashboard/.env
