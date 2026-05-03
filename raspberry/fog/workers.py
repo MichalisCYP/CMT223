@@ -224,7 +224,7 @@ class FocusWorker(Worker):
             self._state.update_focus(score=score, confidence=confidence, reason=reason)
             self._repository.write_focus(self._state.snapshot()["focus"])
 
-
+#
 class DisplayWorker(Worker):
     def __init__(self, config: FogConfig, state: SharedState, led_display, oled_display) -> None:
         super().__init__(name="display-worker")
