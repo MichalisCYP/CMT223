@@ -3,7 +3,7 @@ import grovepi
 
 # Connect the Grove Button to digital port D3
 # SIG,NC,VCC,GND
-button = 7
+button = 4
 
 grovepi.pinMode(button,"INPUT")
 

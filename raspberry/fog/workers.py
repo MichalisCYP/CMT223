@@ -177,6 +177,7 @@ class SessionWorker(Worker):
             time.sleep(1)
             try:
                 self._grovepi.ledBar_init(self._ledbar_pin, 0)
+                time.sleep(0.5)
             except Exception:
                 pass
 
