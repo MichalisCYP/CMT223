@@ -113,6 +113,24 @@ class SessionWorker(Worker):
         self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
         self._last_logged_remaining = -1
 
+        self._has_ledbar = False
+        try:
+            import grovepi
+            self._grovepi = grovepi
+            self._ledbar_pin = 5
+            self._grovepi.pinMode(self._ledbar_pin, "OUTPUT")
+            self._has_ledbar = True
+        except Exception as ex:
+            print("[LEDBAR] Init failed: {}".format(ex))
+
+    def _render_ledbar(self, snap) -> None:
+        if not self._has_ledbar:
+            return
+        try:
+            self._grovepi.ledBar_setLevel(self._ledbar_pin, snap.led_bars)
+        except Exception:
+            pass
+
     @staticmethod
     def _format_mmss(total_seconds: int) -> str:
         minutes = max(0, int(total_seconds)) // 60
@@ -131,7 +149,16 @@ class SessionWorker(Worker):
         self._repository.write_session_event(state_session)
 
     def run(self) -> None:
+        if self._has_ledbar:
+            import time
+            time.sleep(1)
+            try:
+                self._grovepi.ledBar_init(self._ledbar_pin, 0)
+            except Exception:
+                pass
+
         self._persist_snapshot()
+        self._render_ledbar(self._manager.snapshot())
         while not self.stop_event.wait(self._config.session_tick_seconds):
             environment = self._state.snapshot()["environment"]
             button_state = int(environment.get("button", 0))
@@ -160,6 +187,7 @@ class SessionWorker(Worker):
                     )
                 )
                 self._last_logged_remaining = tick_snapshot.remaining_seconds
+            self._render_ledbar(tick_snapshot)
             self._persist_snapshot()
 
 
