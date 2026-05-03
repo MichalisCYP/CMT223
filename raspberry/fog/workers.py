@@ -123,8 +123,25 @@ class SessionWorker(Worker):
             self._ledbar_pin = 5
             self._grovepi.pinMode(self._ledbar_pin, "OUTPUT")
             self._has_ledbar = True
+
+            self._speaker_pin = 6
+            self._grovepi.pinMode(self._speaker_pin, "OUTPUT")
         except Exception as ex:
-            print("[LEDBAR] Init failed: {}".format(ex))
+            print("[HARDWARE] Init failed: {}".format(ex))
+
+    def _play_sound(self) -> None:
+        if not hasattr(self, "_grovepi"):
+            return
+
+        def _beep():
+            try:
+                self._grovepi.analogWrite(self._speaker_pin, 128)
+                time.sleep(0.5)
+                self._grovepi.analogWrite(self._speaker_pin, 0)
+            except Exception as ex:
+                print("[SPEAKER] Play failed: {}".format(ex))
+
+        Thread(target=_beep, daemon=True).start()
 
     def _render_ledbar(self, snap) -> None:
         if not self._has_ledbar:
@@ -169,11 +186,12 @@ class SessionWorker(Worker):
             environment = self._state.snapshot()["environment"]
             button_state = int(environment.get("button", 0))
 
+            previous_snap = self._manager.snapshot()
+
             # Toggle only on the rising edge so a held button does not repeatedly toggle.
             if button_state == 1 and self._last_button_state == 0:
-                previous = self._manager.snapshot()
                 current = self._manager.handle_button_event("CLICK", utc_now_iso())
-                if previous.status != "running" and current.status == "running":
+                if previous_snap.status != "running" and current.status == "running":
                     print(
                         "Session started: started_at={}, timer={}".format(
                             current.started_at,
@@ -184,6 +202,14 @@ class SessionWorker(Worker):
             self._last_button_state = button_state
 
             tick_snapshot = self._manager.tick()
+
+            if previous_snap.status != "running" and tick_snapshot.status == "running":
+                self._play_sound()
+            elif previous_snap.status == "running" and tick_snapshot.status != "running":
+                self._play_sound()
+            elif previous_snap.status == "running" and tick_snapshot.status == "running" and previous_snap.phase != tick_snapshot.phase:
+                self._play_sound()
+
             if tick_snapshot.status == "running" and tick_snapshot.remaining_seconds != self._last_logged_remaining:
                 print(
                     "Session timer: phase={}, remaining={} ({}s)".format(
