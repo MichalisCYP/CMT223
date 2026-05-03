@@ -67,7 +67,7 @@ class ArduinoIngestWorker(Worker):
             updates["light"] = int(float(fields["LIGHT"]))
         if "SOUND" in fields:
             val = float(fields["SOUND"])
-            updates["sound"] = int(20 * math.log10(val)) if val > 0 else 0
+            updates["sound"] = max(0, int(20 * math.log10(val))) if val > 0 else 0
         if "MOVE" in fields:
             updates["move"] = 1 if int(float(fields["MOVE"])) > 0 else 0
         if "TEMP" in fields:
@@ -105,6 +105,86 @@ class ArduinoIngestWorker(Worker):
         self._close_serial()
 
 
+class LedBarController:
+    """Controls the Grove LED Bar hardware."""
+
+    def __init__(self) -> None:
+        self._available = False
+        self._grovepi = None
+        self._pin = 5
+        self._last_level = -1
+        try:
+            import grovepi
+            self._grovepi = grovepi
+            self._grovepi.pinMode(self._pin, "OUTPUT")
+            self._available = True
+        except Exception as ex:
+            print("[LEDBAR] Init failed: {}".format(ex))
+
+    def init_bar(self) -> None:
+        if not self._available:
+            return
+        try:
+            import time
+            self._grovepi.ledBar_init(self._pin, 0)
+            time.sleep(0.5)
+        except Exception as ex:
+            print("[LEDBAR] Init bar failed: {}".format(ex))
+            self._available = False
+
+    def render(self, level: int) -> None:
+        if not self._available or level == self._last_level:
+            return
+        try:
+            self._grovepi.ledBar_setLevel(self._pin, level)
+            self._last_level = level
+        except Exception as ex:
+            print("[LEDBAR] Render failed: {}".format(ex))
+
+    def clear(self) -> None:
+        if not self._available:
+            return
+        try:
+            self._grovepi.ledBar_setBits(self._pin, 0)
+            self._last_level = 0
+        except Exception as ex:
+            print("[LEDBAR] Cleanup failed: {}".format(ex))
+
+    @property
+    def available(self) -> bool:
+        return self._available
+
+
+class SpeakerController:
+    """Controls the Grove Speaker hardware."""
+
+    def __init__(self) -> None:
+        self._available = False
+        self._grovepi = None
+        self._pin = 6
+        try:
+            import grovepi
+            self._grovepi = grovepi
+            self._grovepi.pinMode(self._pin, "OUTPUT")
+            self._available = True
+        except Exception as ex:
+            print("[SPEAKER] Init failed: {}".format(ex))
+
+    def beep(self) -> None:
+        if not self._available:
+            return
+
+        def _do_beep():
+            try:
+                self._grovepi.analogWrite(self._pin, 128)
+                time.sleep(0.5)
+                self._grovepi.analogWrite(self._pin, 0)
+            except Exception as ex:
+                print("[SPEAKER] Play failed: {}".format(ex))
+
+        Thread(target=_do_beep, daemon=True).start()
+
+
 class SessionWorker(Worker):
     def __init__(self, config: FogConfig, state: SharedState, repository: Repository, manager: SessionManager) -> None:
         super().__init__(name="session-worker")
@@ -114,45 +194,9 @@ class SessionWorker(Worker):
         self._manager = manager
         self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
         self._last_logged_remaining = -1
-        self._last_led_bars = -1
 
-        self._has_ledbar = False
-        try:
-            import grovepi
-            self._grovepi = grovepi
-            self._ledbar_pin = 5
-            self._grovepi.pinMode(self._ledbar_pin, "OUTPUT")
-            self._has_ledbar = True
-
-            self._speaker_pin = 6
-            self._grovepi.pinMode(self._speaker_pin, "OUTPUT")
-        except Exception as ex:
-            print("[HARDWARE] Init failed: {}".format(ex))
-
-    def _play_sound(self) -> None:
-        if not hasattr(self, "_grovepi"):
-            return
-
-        def _beep():
-            try:
-                self._grovepi.analogWrite(self._speaker_pin, 128)
-                time.sleep(0.5)
-                self._grovepi.analogWrite(self._speaker_pin, 0)
-            except Exception as ex:
-                print("[SPEAKER] Play failed: {}".format(ex))
-
-        Thread(target=_beep, daemon=True).start()
-
-    def _render_ledbar(self, snap) -> None:
-        if not self._has_ledbar:
-            return
-        if snap.led_bars == self._last_led_bars:
-            return
-        try:
-            self._grovepi.ledBar_setLevel(self._ledbar_pin, snap.led_bars)
-            self._last_led_bars = snap.led_bars
-        except Exception as ex:
-            print("[LEDBAR] Render failed: {}".format(ex))
+        self._ledbar = LedBarController()
+        self._speaker = SpeakerController()
 
     @staticmethod
     def _format_mmss(total_seconds: int) -> str:
@@ -172,17 +216,13 @@ class SessionWorker(Worker):
         self._repository.write_session_event(state_session)
 
     def run(self) -> None:
-        if self._has_ledbar:
+        if self._ledbar.available:
             import time
             time.sleep(1)
-            try:
-                self._grovepi.ledBar_init(self._ledbar_pin, 0)
-                time.sleep(0.5)
-            except Exception:
-                pass
+            self._ledbar.init_bar()
 
         self._persist_snapshot()
-        self._render_ledbar(self._manager.snapshot())
+        self._ledbar.render(self._manager.snapshot().led_bars)
         while not self.stop_event.wait(self._config.session_tick_seconds):
             environment = self._state.snapshot()["environment"]
             button_state = int(environment.get("button", 0))
@@ -205,11 +245,11 @@ class SessionWorker(Worker):
             tick_snapshot = self._manager.tick()
 
             if previous_snap.status != "running" and tick_snapshot.status == "running":
-                self._play_sound()
+                self._speaker.beep()
             elif previous_snap.status == "running" and tick_snapshot.status != "running":
-                self._play_sound()
+                self._speaker.beep()
             elif previous_snap.status == "running" and tick_snapshot.status == "running" and previous_snap.phase != tick_snapshot.phase:
-                self._play_sound()
+                self._speaker.beep()
 
             if tick_snapshot.status == "running" and tick_snapshot.remaining_seconds != self._last_logged_remaining:
                 print(
@@ -220,8 +260,15 @@ class SessionWorker(Worker):
                     )
                 )
                 self._last_logged_remaining = tick_snapshot.remaining_seconds
-            self._render_ledbar(tick_snapshot)
-            self._persist_snapshot()
+            self._ledbar.render(tick_snapshot.led_bars)
+
+            # Only persist when state actually changes (not every tick)
+            if (previous_snap.status != tick_snapshot.status or
+                    previous_snap.phase != tick_snapshot.phase):
+                self._persist_snapshot()
+
+        # Cleanup: turn off LED bar on shutdown
+        self._ledbar.clear()
 
 
 class FocusWorker(Worker):
@@ -328,6 +375,8 @@ class AwsIotPublisherWorker(Worker):
             "session": 0,
             "focus": 0,
         }
+        self._consecutive_failures = 0
+        self._max_failures = 3
 
     def _is_enabled(self) -> bool:
         """Check if AWS IoT publishing is properly configured."""
@@ -426,11 +475,15 @@ class AwsIotPublisherWorker(Worker):
                         qos=qos.AT_LEAST_ONCE,
                     )
                 else:
+                    self._consecutive_failures += 1
                     return False
                 
+                self._consecutive_failures = 0
                 return True
             except Exception as ex:
-                print("[aws] Publish to {} failed: {}".format(topic, ex))
+                self._consecutive_failures += 1
+                print("[aws] Publish to {} failed (failures={}): {}".format(
+                    topic, self._consecutive_failures, ex))
                 return False
 
         # Run publish in background thread to avoid blocking
@@ -497,8 +550,14 @@ class AwsIotPublisherWorker(Worker):
                     self._publish_if_new("focus", self._repository.latest_focus())
                 except Exception as ex:
                     print("[aws] Publish cycle failed: {}".format(ex))
-                    # Force reconnect on error
                     self._disconnect()
+
+                # Force reconnect if too many consecutive publish failures
+                if self._consecutive_failures >= self._max_failures:
+                    print("[aws] {} consecutive failures, forcing reconnect".format(
+                        self._consecutive_failures))
+                    self._disconnect()
+                    self._consecutive_failures = 0
 
         except KeyboardInterrupt:
             print("[aws] Shutting down...")

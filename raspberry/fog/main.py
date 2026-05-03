@@ -67,6 +67,7 @@ def main() -> int:
             worker.stop()
         for worker in workers:
             worker.join(timeout=2.0)
+        repository.close()
 
     return 0
 

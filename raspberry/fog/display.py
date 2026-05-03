@@ -29,7 +29,8 @@ class LedEnvironmentDisplay:
             self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 4, r)
             self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 3, g)
             self._bus.write_byte_data(self._DISPLAY_RGB_ADDR, 2, b)
-        except: pass
+        except Exception as ex:
+            print("[LED] RGB write failed: {}".format(ex))
 
     def _set_text(self, text):
         if not self._has_display: return
@@ -44,7 +45,8 @@ class LedEnvironmentDisplay:
                     self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0xc0) # Line 2
                     if c == '\n': continue
                 self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x40, ord(c))
-        except: pass
+        except Exception as ex:
+            print("[LED] Text write failed: {}".format(ex))
 
     def render(self, environment: Dict[str, Any]):
         l1 = "T:{:.0f}C H:{:.0f}%".format(environment.get("temperature", 0), environment.get("humidity", 0))

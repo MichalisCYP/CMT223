@@ -9,14 +9,13 @@ class Repository:
     def __init__(self, db_path: str) -> None:
         self._db_path = db_path
         self._lock = Lock()
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
         self._init_db()
 
-    def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self._db_path, check_same_thread=False)
-
     def _init_db(self) -> None:
-        with self._connect() as conn:
-            conn.execute(
+        with self._conn:
+            self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS environment_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,8 +30,8 @@ class Repository:
                 )
                 """
             )
-            self._ensure_column(conn, "environment_log", "distance_cm", "INTEGER")
-            conn.execute(
+            self._ensure_column(self._conn, "environment_log", "distance_cm", "INTEGER")
+            self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS session_event (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,7 +42,7 @@ class Repository:
                 )
                 """
             )
-            conn.execute(
+            self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS focus_log (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +53,7 @@ class Repository:
                 )
                 """
             )
-            conn.commit()
+            self._conn.commit()
 
     def _ensure_column(
         self, conn: sqlite3.Connection, table_name: str, column_name: str, column_type: str
@@ -67,44 +66,43 @@ class Repository:
             )
 
     def write_environment(self, payload: Dict[str, Any]) -> None:
-        with self._lock, self._connect() as conn:
-            conn.execute(
+        with self._lock:
+            self._conn.execute(
                 """
                 INSERT INTO environment_log(ts, light, sound, move, button, temperature, humidity, distance_cm)
                 VALUES(:updated_at, :light, :sound, :move, :button, :temperature, :humidity, :distance_cm)
                 """,
                 payload,
             )
-            conn.commit()
+            self._conn.commit()
 
     def write_session_event(self, payload: Dict[str, Any]) -> None:
-        with self._lock, self._connect() as conn:
-            conn.execute(
+        with self._lock:
+            self._conn.execute(
                 """
                 INSERT INTO session_event(ts, status, phase, remaining_seconds)
                 VALUES(:updated_at, :status, :phase, :remaining_seconds)
                 """,
                 payload,
             )
-            conn.commit()
+            self._conn.commit()
 
     def write_focus(self, payload: Dict[str, Any]) -> None:
-        with self._lock, self._connect() as conn:
-            conn.execute(
+        with self._lock:
+            self._conn.execute(
                 """
                 INSERT INTO focus_log(ts, score, confidence, reason)
                 VALUES(:updated_at, :score, :confidence, :reason)
                 """,
                 payload,
             )
-            conn.commit()
+            self._conn.commit()
 
     def latest_environment(self) -> Dict[str, Any] | None:
-        with self._lock, self._connect() as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
+        with self._lock:
+            row = self._conn.execute(
                 """
-                SELECT id, ts, light, sound, move, button, temperature, humidity
+                SELECT id, ts, light, sound, move, button, temperature, humidity, distance_cm
                 FROM environment_log
                 ORDER BY id DESC
                 LIMIT 1
@@ -113,9 +111,8 @@ class Repository:
             return dict(row) if row is not None else None
 
     def latest_session_event(self) -> Dict[str, Any] | None:
-        with self._lock, self._connect() as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
+        with self._lock:
+            row = self._conn.execute(
                 """
                 SELECT id, ts, status, phase, remaining_seconds
                 FROM session_event
@@ -126,9 +123,8 @@ class Repository:
             return dict(row) if row is not None else None
 
     def latest_focus(self) -> Dict[str, Any] | None:
-        with self._lock, self._connect() as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute(
+        with self._lock:
+            row = self._conn.execute(
                 """
                 SELECT id, ts, score, confidence, reason
                 FROM focus_log
@@ -137,3 +133,7 @@ class Repository:
                 """
             ).fetchone()
             return dict(row) if row is not None else None
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()

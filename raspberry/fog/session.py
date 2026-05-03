@@ -71,7 +71,7 @@ class SessionManager:
         if elapsed <= 0:
             return self.snapshot()
 
-        self._last_tick = now
+        self._last_tick += elapsed
         self._remaining_seconds = max(0, self._remaining_seconds - elapsed)
         if self._remaining_seconds == 0:
             if self._phase == "focus":
