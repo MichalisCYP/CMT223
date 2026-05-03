@@ -84,7 +84,7 @@ class SessionManager:
         return self.snapshot()
 
     def snapshot(self) -> SessionSnapshot:
-        led_bars = 10
+        led_bars = 0
         if self._status in ("running", "paused") and self._phase == "focus":
             elapsed = self._focus_seconds - self._remaining_seconds
             led_bars = max(0, 10 - int(elapsed // 150))
