@@ -163,6 +163,52 @@ class SessionWorker(Worker):
             self._persist_snapshot()
 
 
+class GroveWorker(Worker):
+    def __init__(self, config: FogConfig, manager: SessionManager) -> None:
+        super().__init__(name="grove-worker")
+        self._config = config
+        self._manager = manager
+        self._grovepi = None
+        self._button_pin = 4
+        self._last_button_state = 0
+
+    def _ensure_grove(self) -> bool:
+        if self._grovepi is not None:
+            return True
+        try:
+            self._grovepi = importlib.import_module("grovepi")
+            self._grovepi.pinMode(self._button_pin, "INPUT")
+            return True
+        except Exception as ex:
+            print("GrovePi unavailable: {}".format(ex))
+            self._grovepi = None
+            return False
+
+    def run(self) -> None:
+        while not self.stop_event.wait(0.1):
+            if not self._ensure_grove():
+                self.stop_event.wait(self._config.reconnect_seconds)
+                continue
+
+            try:
+                button_state = self._grovepi.digitalRead(self._button_pin)
+                if button_state == 1 and self._last_button_state == 0:
+                    snap = self._manager.snapshot()
+                    if snap.status == "running":
+                        self._manager.pause()
+                        print("Session paused by Grove button")
+                    elif snap.status == "paused":
+                        self._manager.resume()
+                        print("Session resumed by Grove button")
+                self._last_button_state = button_state
+            except IOError:
+                pass
+            except Exception as ex:
+                print("Grove read failed: {}".format(ex))
+                self._grovepi = None
+                self.stop_event.wait(self._config.reconnect_seconds)
+
+
 class FocusWorker(Worker):
     def __init__(self, config: FogConfig, state: SharedState, repository: Repository) -> None:
         super().__init__(name="focus-worker")
