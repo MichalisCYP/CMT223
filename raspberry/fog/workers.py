@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
 import time
 from threading import Event, Thread
 
@@ -65,7 +66,8 @@ class ArduinoIngestWorker(Worker):
         if "LIGHT" in fields:
             updates["light"] = int(float(fields["LIGHT"]))
         if "SOUND" in fields:
-            updates["sound"] = int(float(fields["SOUND"]))
+            val = float(fields["SOUND"])
+            updates["sound"] = int(20 * math.log10(val)) if val > 0 else 0
         if "MOVE" in fields:
             updates["move"] = 1 if int(float(fields["MOVE"])) > 0 else 0
         if "TEMP" in fields:
@@ -219,7 +221,7 @@ class FocusWorker(Worker):
             reasons.append("low_light")
 
         sound = int(env["sound"])
-        if sound > 600:
+        if sound > 55:
             score -= 20
             reasons.append("high_noise")
 
