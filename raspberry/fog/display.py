@@ -1,5 +1,6 @@
 from __future__ import annotations
 import importlib
+import os
 import time
 from typing import Dict, Any
 
@@ -93,7 +94,7 @@ class LedEnvironmentDisplay:
             self._set_rgb(128, 0, 128)         # Purple: Stopped/Idle
 
         # 2. Format Line 1: Center [PHASE]
-        display_phase = "FLOW" if phase == "FOCUS" else phase
+        display_phase = "Focus Flow" if phase == "FOCUS" else phase
         l1 = "{:^16}".format(display_phase[:16])
 
         # 3. Format Line 2: T:XX H:XX F:XX
@@ -127,7 +128,8 @@ class OledSessionDisplay:
             try:
                 asset_path = os.path.join(os.path.dirname(__file__), "assets", "bg.png")
                 if os.path.exists(asset_path):
-                    self._background = image_module.open(asset_path).convert("1").resize((96, 96))
+                    # Resize to 96x36 to fit at the bottom
+                    self._background = image_module.open(asset_path).convert("1").resize((96, 36))
                     print(f"[OLED] Background loaded from {asset_path}")
                 else:
                     print(f"[OLED] Background file NOT FOUND at {asset_path}")
@@ -135,9 +137,9 @@ class OledSessionDisplay:
                 print(f"[OLED] Background load failed: {ex}")
 
             try:
-                # Even larger fonts
+                # Optimized sizes for the new layout
                 self._font_status = imagefont_module.truetype("DejaVuSans-Bold.ttf", 22)
-                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 40)
+                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 36)
                 self._font_phase = imagefont_module.truetype("DejaVuSans.ttf", 14)
             except Exception:
                 default = imagefont_module.load_default()
@@ -146,7 +148,7 @@ class OledSessionDisplay:
                 self._font_phase = default
                 
             self._oled_available = True
-            print("[OLED] SH1107G initialized with image background and ultra-large fonts")
+            print("[OLED] SH1107G initialized with bottom-aligned background")
         except Exception as ex:
             print(f"[OLED] Init failed: {ex}")
 
@@ -167,14 +169,11 @@ class OledSessionDisplay:
 
         try:
             with self._canvas(self._device) as draw:
-                # 1. Background (Active Area 96x96)
+                # 1. Background (Bottom - starts at y=60)
                 if self._background:
-                    # Draw the tropical beach silhouette
-                    draw.bitmap((0, 0), self._background, fill="white")
+                    draw.bitmap((0, 60), self._background, fill="white")
                 else:
-                    # Fallback border if image not found
-                    draw.rectangle((0, 0, 95, 95), outline="white", width=1)
-                    draw.line((10, 30, 86, 30), fill="white")
+                    draw.line((0, 60, 95, 60), fill="white")
 
                 # 2. Status (Centered, Top)
                 try:
@@ -182,24 +181,26 @@ class OledSessionDisplay:
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(status, font=self._font_status)
-                draw.text(((96 - w) // 2, 4), status, fill="white", font=self._font_status)
+                draw.text(((96 - w) // 2, 2), status, fill="white", font=self._font_status)
                 
-                # 3. Phase (Centered)
+                # 3. Phase (Centered, only if not FOCUS)
                 if phase != "FOCUS":
                     try:
                         bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
                         w = bbox[2] - bbox[0]
                     except AttributeError:
                         w, _ = draw.textsize(phase, font=self._font_phase)
-                    draw.text(((96 - w) // 2, 30), phase, fill="white", font=self._font_phase)
+                    draw.text(((96 - w) // 2, 22), phase, fill="white", font=self._font_phase)
                 
-                # 4. Timer (Centered, Bottom)
+                # 4. Timer (Centered, Middle)
                 try:
                     bbox = draw.textbbox((0, 0), timer, font=self._font_timer)
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(timer, font=self._font_timer)
-                draw.text(((96 - w) // 2, 48), timer, fill="white", font=self._font_timer)
+                # Shift timer up/down based on phase visibility
+                timer_y = 24 if phase == "FOCUS" else 38
+                draw.text(((96 - w) // 2, timer_y), timer, fill="white", font=self._font_timer)
                 
         except Exception as ex:
             print(f"[OLED] Render Error: {ex}")
