@@ -78,6 +78,8 @@ class ArduinoIngestWorker(Worker):
             updates["distance_cm"] = int(float(fields["DISTANCE"]))
         if "BUTTON" in fields:
             updates["button"] = 1 if int(float(fields["BUTTON"])) > 0 else 0
+        if "BUTTON2" in fields:
+            updates["button2"] = 1 if int(float(fields["BUTTON2"])) > 0 else 0
 
         if updates:
             self._state.update_environment(**updates)
@@ -111,6 +113,7 @@ class SessionWorker(Worker):
         self._repository = repository
         self._manager = manager
         self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
+        self._last_button2_state = int(self._state.snapshot()["environment"].get("button2", 0))
         self._last_logged_remaining = -1
 
     @staticmethod
@@ -135,8 +138,9 @@ class SessionWorker(Worker):
         while not self.stop_event.wait(self._config.session_tick_seconds):
             environment = self._state.snapshot()["environment"]
             button_state = int(environment.get("button", 0))
+            button2_state = int(environment.get("button2", 0))
 
-            # Toggle only on the rising edge so a held button does not repeatedly toggle.
+            # Button 1: Toggle only on the rising edge so a held button does not repeatedly toggle.
             if button_state == 1 and self._last_button_state == 0:
                 previous = self._manager.snapshot()
                 current = self._manager.handle_button_event("CLICK", utc_now_iso())
@@ -149,6 +153,18 @@ class SessionWorker(Worker):
                     )
                 self._persist_snapshot()
             self._last_button_state = button_state
+
+            # Button 2: Pause/Resume on rising edge
+            if button2_state == 1 and self._last_button2_state == 0:
+                previous = self._manager.snapshot()
+                if previous.status == "running":
+                    current = self._manager.pause()
+                    print("Session paused")
+                elif previous.status == "paused":
+                    current = self._manager.resume()
+                    print("Session resumed: timer={}".format(self._format_mmss(current.remaining_seconds)))
+                self._persist_snapshot()
+            self._last_button2_state = button2_state
 
             tick_snapshot = self._manager.tick()
             if tick_snapshot.status == "running" and tick_snapshot.remaining_seconds != self._last_logged_remaining:
