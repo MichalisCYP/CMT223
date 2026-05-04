@@ -97,12 +97,9 @@ class LedEnvironmentDisplay:
         else:
             self._set_rgb(128, 0, 128)         # Purple: Stopped/Idle
 
-        # 2. Format Line 1: [PHASE] MM:SS
-        timer_seconds = (session or {}).get("remaining_seconds", 0)
-        mm = int(timer_seconds) // 60
-        ss = int(timer_seconds) % 60
-        display_phase = "FOCUSFLOW" if phase == "FOCUS" else phase
-        l1 = "{:<10} {:02d}:{:02d}".format(display_phase[:10], mm, ss)
+        # 2. Format Line 1: Center [PHASE]
+        display_phase = "FOCUS FLOW" if phase == "FOCUS" else phase
+        l1 = "{:^16}".format(display_phase[:16])
 
         # 3. Format Line 2: T:XX H:XX F:XX
         temp = environment.get("temperature", 0)
