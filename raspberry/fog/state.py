@@ -13,6 +13,7 @@ class EnvironmentState:
     sound: int = 0
     move: int = 0
     button: int = 0
+    button2: int = 0
     temperature: float = 0.0
     humidity: float = 0.0
     distance_cm: int = 0

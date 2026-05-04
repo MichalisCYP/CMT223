@@ -9,6 +9,7 @@ constexpr uint8_t PIN_PIR = 2;    // Grove PIR sensor signal
 constexpr uint8_t PIN_LIGHT = A3;  // Grove light sensor analog output
 constexpr uint8_t PIN_SOUND = A0;  // Grove sound sensor analog output
 constexpr uint8_t PIN_BUTTON = 4;   // Grove button signal
+constexpr uint8_t PIN_BUTTON2 = 8;  // Second button on D8
 constexpr uint8_t PIN_DHT = 5;     // Grove DHT sensor signal
 constexpr uint8_t PIN_DIST = 6;    // Grove ultrasonic ranger signal
 
