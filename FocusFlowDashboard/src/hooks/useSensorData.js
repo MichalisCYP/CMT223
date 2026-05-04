@@ -14,6 +14,8 @@ export default function useSensorData(active) {
     hum: 0,
   });
   const [focusScore, setFocusScore] = useState(0);
+  const [cvScore, setCvScore] = useState(0);
+  const [tableScore, setTableScore] = useState(0);
   const [focusConf, setFocusConf] = useState("low");
   const [focusReasons, setFocusReasons] = useState([]);
   const [cvOk, setCvOk] = useState(false);
@@ -33,6 +35,11 @@ export default function useSensorData(active) {
       setCv(hasCv ? cvData : null);
       setCvOk(hasCv);
 
+      // Fetch Focus from Table/Fog
+      const tableFocusData = await api("/focus/latest").catch(() => null);
+      const tScore = tableFocusData?.score ?? 0;
+      setTableScore(tScore);
+
       // Fetch environment
       const envData = await api("/env/latest").catch(() => null);
       const hasEnv = !!(envData && envData.ts);
@@ -49,8 +56,8 @@ export default function useSensorData(active) {
         : mockSensors();
       setSensors(s);
 
-      // Compute score
-      let score = 100;
+      // Compute CV Score
+      let cScore = 100;
       let reasons = [];
 
       if (hasCv) {
@@ -72,38 +79,39 @@ export default function useSensorData(active) {
 
         const facePresentNow = smoothedFaceRef.current || rawFace;
         if (!facePresentNow) {
-          score -= 25;
+          cScore -= 25;
           reasons.push("absent");
         }
         if (cvData.looking_away) {
-          score -= 20;
+          cScore -= 20;
           reasons.push("looking_away");
         }
         if (cvData.slouching) {
-          score -= 15;
+          cScore -= 15;
           reasons.push("slouching");
         }
         if (!cvData.eyes_detected && facePresentNow) {
-          score -= 10;
+          cScore -= 10;
           reasons.push("eyes_unclear");
         }
       } else {
-        score -= 10;
+        cScore = 0;
         reasons.push("cv_offline");
       }
-      if (s.sound > 400) {
-        score -= 10;
-        reasons.push("high_noise");
+      
+      cScore = Math.max(0, Math.min(100, Math.round(cScore)));
+      setCvScore(cScore);
+
+      // Average them
+      const finalScore = Math.round((cScore + tScore) / 2);
+
+      // Merge reasons from Table if available
+      if (tableFocusData?.reason && tableFocusData.reason !== "not_running" && tableFocusData.reason !== "stable") {
+        const tableReasons = tableFocusData.reason.split(",");
+        tableReasons.forEach(r => {
+          if (!reasons.includes(r)) reasons.push(r);
+        });
       }
-      if (s.light < 300) {
-        score -= 10;
-        reasons.push("low_light");
-      }
-      if (s.temp < 18 || s.temp > 26) {
-        score -= 5;
-        reasons.push("comfort");
-      }
-      score = Math.max(0, Math.min(100, Math.round(score)));
 
       const conf = hasCv
         ? cvData.confidence > 0.7
@@ -111,12 +119,12 @@ export default function useSensorData(active) {
           : "medium"
         : "low";
       
-      setFocusScore(score);
+      setFocusScore(finalScore);
       setFocusConf(conf);
       setFocusReasons(reasons);
 
       const now = clockStr();
-      setFocusHistory((p) => [...p.slice(-59), { time: now, score }]);
+      setFocusHistory((p) => [...p.slice(-59), { time: now, score: finalScore }]);
       setSensorHistory((p) => [
         ...p.slice(-59),
         { time: now, light: s.light, sound: s.sound, temp: s.temp, hum: s.hum },
@@ -132,6 +140,8 @@ export default function useSensorData(active) {
     cv,
     sensors,
     focusScore,
+    cvScore,
+    envScore: tableScore,
     focusConf,
     focusReasons,
     cvOk,

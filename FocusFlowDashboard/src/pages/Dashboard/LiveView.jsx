@@ -15,7 +15,7 @@ export default function LiveView({
   active, paused, phase, sessionMinutes, timer, poms,
   setPaused, adjustSessionMinutes, startSession, stopSession,
   // Sensor State
-  sensors, focusScore, focusConf, focusReasons, envOk, focusHistory, sensorHistory,
+  sensors, focusScore, cvScore, envScore, focusConf, focusReasons, envOk, focusHistory, sensorHistory,
   // Actions
   onOpenChat
 }) {
@@ -249,6 +249,27 @@ export default function LiveView({
       >
         <Label>Focus</Label>
         <FocusRing score={focusScore} confidence={focusConf} />
+        
+        <div style={{ 
+          display: "flex", 
+          gap: 15, 
+          marginTop: 4, 
+          padding: "8px 16px",
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: 12,
+          border: `1px solid ${T.border}`
+        }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>CV Score</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{cvScore}</div>
+          </div>
+          <div style={{ width: 1, background: T.border }}></div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>Env Score</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.blue }}>{envScore}</div>
+          </div>
+        </div>
+
         {focusReasons.length > 0 && (
           <div
             style={{
