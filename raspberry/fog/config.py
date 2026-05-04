@@ -48,3 +48,6 @@ class FogConfig:
     aws_iot_key_path: str = _resolve_cert_path(os.getenv("FOG_AWS_IOT_KEY_PATH", "raspberry-1-central.private.key"))
     aws_iot_root_ca_path: str = _resolve_cert_path(os.getenv("FOG_AWS_IOT_ROOT_CA_PATH", "root-CA.crt"))
     aws_iot_client_id: str = os.getenv("FOG_AWS_IOT_CLIENT_ID", "focusflow-fog")
+
+    rpc_host: str = os.getenv("FOG_RPC_HOST", "0.0.0.0")
+    rpc_port: int = int(os.getenv("FOG_RPC_PORT", "5005"))

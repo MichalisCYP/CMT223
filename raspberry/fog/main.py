@@ -16,6 +16,7 @@ from .workers import (
     FocusWorker,
     SessionWorker,
     GroveWorker,
+    RpcWorker,
 )
 
 
@@ -36,6 +37,7 @@ def main() -> int:
         FocusWorker(config, state, repository),
         AwsIotPublisherWorker(config, repository),
         DisplayWorker(config, state, led_display, oled_display),
+        RpcWorker(config, state, session_manager),
     ]
 
     for worker in workers:

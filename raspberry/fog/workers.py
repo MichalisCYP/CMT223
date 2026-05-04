@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Event, Thread
 
 from .config import FogConfig
@@ -506,3 +507,85 @@ class AwsIotPublisherWorker(Worker):
         finally:
             self._disconnect()
             print("[aws] Publisher stopped.")
+
+
+class RpcWorker(Worker):
+    """
+    Provides a REST-like RPC interface for session control and state synchronization.
+    Endpoints:
+    - GET /api/state: Full state snapshot
+    - POST /api/session/start: Start focus
+    - POST /api/session/stop: Stop session
+    - POST /api/session/pause: Pause session
+    - POST /api/session/resume: Resume session
+    """
+
+    def __init__(self, config: FogConfig, state: SharedState, manager: SessionManager) -> None:
+        super().__init__(name="rpc-worker")
+        self._config = config
+        self._state = state
+        self._manager = manager
+        self._server = None
+
+    def run(self) -> None:
+        worker_self = self
+
+        class RpcHandler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                # Suppress default logging to avoid cluttering fog console
+                pass
+
+            def do_OPTIONS(self):
+                self.send_response(200)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.end_headers()
+
+            def _send_json(self, data: dict, status: int = 200):
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(data).encode("utf-8"))
+
+            def do_GET(self):
+                if self.path == "/api/state":
+                    self._send_json(worker_self._state.snapshot())
+                else:
+                    self.send_error(404)
+
+            def do_POST(self):
+                now = utc_now_iso()
+                if self.path == "/api/session/start":
+                    worker_self._manager.start(now)
+                    self._send_json({"ok": True, "action": "start"})
+                elif self.path == "/api/session/stop":
+                    worker_self._manager.stop()
+                    self._send_json({"ok": True, "action": "stop"})
+                elif self.path == "/api/session/pause":
+                    worker_self._manager.pause()
+                    self._send_json({"ok": True, "action": "pause"})
+                elif self.path == "/api/session/resume":
+                    worker_self._manager.resume()
+                    self._send_json({"ok": True, "action": "resume"})
+                else:
+                    self.send_error(404)
+
+        try:
+            self._server = HTTPServer((self._config.rpc_host, self._config.rpc_port), RpcHandler)
+            print("[rpc] Server listening on {}:{}".format(self._config.rpc_host, self._config.rpc_port))
+            
+            # The server's serve_forever blocks, so we check stop_event periodically 
+            # by using a small timeout if possible, but HTTPServer doesn't support it easily.
+            # Instead, we'll run it and rely on handle_shutdown to call server.shutdown()
+            self._server.serve_forever()
+        except Exception as ex:
+            if not self.stop_event.is_set():
+                print("[rpc] Server failed: {}".format(ex))
+
+    def stop(self) -> None:
+        super().stop()
+        if self._server:
+            self._server.shutdown()
+            self._server.server_close()

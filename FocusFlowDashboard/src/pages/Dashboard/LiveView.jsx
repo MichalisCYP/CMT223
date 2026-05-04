@@ -12,7 +12,7 @@ import useSpeechDictation from '../../hooks/useSpeechDictation';
 
 export default function LiveView({
   // Timer State
-  active, paused, phase, sessionMinutes, timer, poms,
+  active, paused, phase, sessionMinutes, timer, poms, isSynced,
   setPaused, adjustSessionMinutes, startSession, stopSession,
   // Sensor State
   sensors, focusScore, cvScore, envScore, focusConf, focusReasons, envOk, focusHistory, sensorHistory,
@@ -42,7 +42,22 @@ export default function LiveView({
           gap: 14,
         }}
       >
-        <Label>Session</Label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Label>Session</Label>
+          {isSynced && (
+            <span style={{ 
+              fontSize: 9, 
+              fontWeight: 800, 
+              color: T.accent, 
+              background: "rgba(52,211,153,0.12)", 
+              padding: "2px 6px", 
+              borderRadius: 6,
+              border: "1px solid rgba(52,211,153,0.2)"
+            }}>
+              FOG SYNCED
+            </span>
+          )}
+        </div>
         {active ? (
           <>
             <div
