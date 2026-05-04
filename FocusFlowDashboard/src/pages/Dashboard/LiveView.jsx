@@ -17,7 +17,9 @@ export default function LiveView({
   // Sensor State
   sensors, focusScore, cvScore, envScore, focusConf, focusReasons, envOk, focusHistory, sensorHistory,
   // Actions
-  onOpenChat
+  onOpenChat,
+  autoMusic,
+  setAutoMusic
 }) {
   const { listening: voiceListening, error: voiceError, startDictation } = useSpeechDictation((transcript) => {
     window.localStorage.setItem("focusflow_chat_draft", transcript.trim());
@@ -87,48 +89,7 @@ export default function LiveView({
             <div style={{ fontSize: 11, color: T.muted }}>
               Pomodoro {poms + 1} · Focus {sessionMinutes}m
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                marginTop: 2,
-              }}
-            >
-              <button
-                onClick={() => adjustSessionMinutes(-1)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${T.border}`,
-                  background: "rgba(255,255,255,0.03)",
-                  color: T.muted,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: T.mono,
-                }}
-              >
-                -1m
-              </button>
-              <button
-                onClick={() => adjustSessionMinutes(1)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${T.border}`,
-                  background: "rgba(255,255,255,0.03)",
-                  color: T.muted,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: T.mono,
-                }}
-              >
-                +1m
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button
                 onClick={() => setPaused((v) => !v)}
                 style={{
@@ -183,53 +144,13 @@ export default function LiveView({
             </div>
             <div
               style={{
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                marginBottom: 4,
+                fontSize: 12,
+                color: T.muted,
+                fontFamily: T.mono,
+                marginBottom: 12,
               }}
             >
-              <button
-                onClick={() => adjustSessionMinutes(-1)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${T.border}`,
-                  background: "rgba(255,255,255,0.03)",
-                  color: T.muted,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: T.mono,
-                }}
-              >
-                -1m
-              </button>
-              <div
-                style={{
-                  fontSize: 12,
-                  color: T.muted,
-                  fontFamily: T.mono,
-                }}
-              >
-                Focus {sessionMinutes}m
-              </div>
-              <button
-                onClick={() => adjustSessionMinutes(1)}
-                style={{
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  border: `1px solid ${T.border}`,
-                  background: "rgba(255,255,255,0.03)",
-                  color: T.muted,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  fontFamily: T.mono,
-                }}
-              >
-                +1m
-              </button>
+              Focus {sessionMinutes}m
             </div>
             <button
               onClick={startSession}
@@ -244,10 +165,45 @@ export default function LiveView({
                 fontWeight: 700,
                 fontFamily: T.sans,
                 boxShadow: `0 4px 24px rgba(52,211,153,0.25)`,
+                marginBottom: 12,
               }}
             >
               Start Session
             </button>
+            <div 
+              onClick={() => setAutoMusic(!autoMusic)}
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 8, 
+                cursor: "pointer",
+                opacity: autoMusic ? 1 : 0.6,
+                transition: "opacity 0.2s"
+              }}
+            >
+              <div style={{
+                width: 32,
+                height: 18,
+                borderRadius: 10,
+                background: autoMusic ? T.accent : T.dim,
+                position: "relative",
+                transition: "background 0.2s"
+              }}>
+                <div style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  position: "absolute",
+                  top: 2,
+                  left: autoMusic ? 16 : 2,
+                  transition: "left 0.2s"
+                }} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>
+                Auto-play lofi music
+              </span>
+            </div>
           </>
         )}
       </Card>

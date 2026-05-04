@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { T } from '../../constants/theme';
 import StatusDot from '../ui/StatusDot';
 
@@ -9,8 +9,29 @@ export default function Header({
   envOk,
   onOpenChat,
   onOpenDashboard,
-  onOpenHistory
+  onOpenHistory,
+  isPlaying,
+  setIsPlaying
 }) {
+  const audioRef = useRef(null);
+
+  // Sync audio playback with isPlaying prop
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.play().catch(err => {
+        console.warn("Autoplay blocked by browser. User interaction needed.", err);
+        setIsPlaying(false);
+      });
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying, setIsPlaying]);
+
+  const toggleMusic = () => {
+    setIsPlaying(!isPlaying);
+  };
+
   const navBtn = (v) => ({
     padding: "8px 22px",
     borderRadius: 10,
@@ -68,17 +89,57 @@ export default function Header({
         </div>
       </div>
 
-      <nav style={{ display: "flex", gap: 4 }}>
-        <button style={navBtn("live")} onClick={onOpenDashboard}>
-          Live Session
-        </button>
-        <button style={navBtn("history")} onClick={onOpenHistory}>
-          History
-        </button>
-        <button style={navBtn("chat")} onClick={onOpenChat}>
-          Tutor Buddy
-        </button>
-      </nav>
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        {/* Lofi Music Player */}
+        <div 
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 10, 
+            padding: "6px 14px", 
+            background: "rgba(255,255,255,0.03)", 
+            borderRadius: 20,
+            border: `1px solid ${T.border}`
+          }}
+        >
+          <span style={{ fontSize: 14 }}>🎵</span>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.muted, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Lofi Radio
+          </div>
+          <button
+            onClick={toggleMusic}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              border: "none",
+              background: isPlaying ? T.accent : "rgba(255,255,255,0.1)",
+              color: isPlaying ? "#000" : T.text,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              transition: "all 0.2s"
+            }}
+          >
+            {isPlaying ? "⏸" : "▶"}
+          </button>
+          <audio ref={audioRef} src="/sounds/music.mp3" loop />
+        </div>
+
+        <nav style={{ display: "flex", gap: 4 }}>
+          <button style={navBtn("live")} onClick={onOpenDashboard}>
+            Live Session
+          </button>
+          <button style={navBtn("history")} onClick={onOpenHistory}>
+            History
+          </button>
+          <button style={navBtn("chat")} onClick={onOpenChat}>
+            Tutor Buddy
+          </button>
+        </nav>
+      </div>
 
       <div
         style={{

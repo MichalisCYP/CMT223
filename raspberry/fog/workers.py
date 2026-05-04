@@ -298,11 +298,11 @@ class DisplayWorker(Worker):
 
     def run(self) -> None:
         snapshot = self._state.snapshot()
-        self._led.render(snapshot["environment"])
+        self._led.render(snapshot["environment"], snapshot["session"], snapshot["focus"])
         self._oled.render(snapshot["session"], snapshot["focus"])
         while not self.stop_event.wait(self._config.display_update_seconds):
             snapshot = self._state.snapshot()
-            self._led.render(snapshot["environment"])
+            self._led.render(snapshot["environment"], snapshot["session"], snapshot["focus"])
             self._oled.render(snapshot["session"], snapshot["focus"])
 
 

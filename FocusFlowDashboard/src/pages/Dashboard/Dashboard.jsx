@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import LiveView from './LiveView';
 import HistoryView from './HistoryView';
@@ -8,9 +8,20 @@ import useTimer from '../../hooks/useTimer';
 
 export default function Dashboard({ initialView = "live", onOpenChat, navigate }) {
   const [view, setView] = useState(initialView);
+  const [autoMusic, setAutoMusic] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const timerData = useTimer();
   const sensorData = useSensorData(timerData.active);
+
+  // Auto-start music when session begins
+  useEffect(() => {
+    if (timerData.active && autoMusic && !timerData.paused) {
+      setIsPlaying(true);
+    }
+    // Stop music when session finishes? Optional, but maybe good.
+    // if (!timerData.active) setIsPlaying(false);
+  }, [timerData.active, autoMusic, timerData.paused]);
 
   const handleOpenDashboard = () => {
     setView("live");
@@ -39,6 +50,8 @@ export default function Dashboard({ initialView = "live", onOpenChat, navigate }
         onOpenChat={onOpenChat}
         onOpenDashboard={handleOpenDashboard}
         onOpenHistory={handleOpenHistory}
+        isPlaying={isPlaying}
+        setIsPlaying={setIsPlaying}
       />
 
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
@@ -47,6 +60,8 @@ export default function Dashboard({ initialView = "live", onOpenChat, navigate }
             {...timerData}
             {...sensorData}
             onOpenChat={onOpenChat}
+            autoMusic={autoMusic}
+            setAutoMusic={setAutoMusic}
           />
         )}
         {view === "history" && <HistoryView />}
