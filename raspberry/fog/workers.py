@@ -116,6 +116,7 @@ class SessionWorker(Worker):
         self._last_button_state = int(self._state.snapshot()["environment"].get("button", 0))
         self._last_button2_state = int(self._state.snapshot()["environment"].get("button2", 0))
         self._last_logged_remaining = -1
+        self._last_session_state = None
 
     @staticmethod
     def _format_mmss(total_seconds: int) -> str:
@@ -131,8 +132,13 @@ class SessionWorker(Worker):
             remaining_seconds=snap.remaining_seconds,
             started_at=snap.started_at,
         )
-        state_session = self._state.snapshot()["session"]
-        self._repository.write_session_event(state_session)
+        
+        # Only write to DB if status or phase changed
+        current_state = (snap.status, snap.phase)
+        if current_state != self._last_session_state:
+            state_session = self._state.snapshot()["session"]
+            self._repository.write_session_event(state_session)
+            self._last_session_state = current_state
 
     def run(self) -> None:
         self._persist_snapshot()

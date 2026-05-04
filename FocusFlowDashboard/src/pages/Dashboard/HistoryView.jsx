@@ -15,16 +15,37 @@ export default function HistoryView() {
       try {
         const data = await api("/session/history?limit=20");
         if (data && Array.isArray(data) && data.length > 0) {
-          setSessions(
-            data.map((s) => ({
-              title: s.phase || s.status || "Session",
-              status: s.status || "completed",
-              mins: Math.round((s.remaining_seconds || 0) / 60) || 25,
-              score: s.score || 75,
-              poms: 1,
-              time: s.ts,
-            })),
-          );
+          // Group by started_at to collapse events belonging to the same session
+          const groups = data.reduce((acc, s) => {
+            const sessionId = s.started_at || s.ts;
+            if (!acc[sessionId]) acc[sessionId] = [];
+            acc[sessionId].push(s);
+            return acc;
+          }, {});
+
+          const groupedSessions = Object.values(groups).map((events) => {
+            // Sort events by timestamp within the group
+            const sorted = [...events].sort((a, b) => new Date(a.ts) - new Date(b.ts));
+            const first = sorted[0];
+            const last = sorted[sorted.length - 1];
+            
+            const isStopped = sorted.some(e => e.status === 'stopped');
+            const startTime = new Date(first.ts);
+            const endTime = new Date(last.ts);
+            const durationMins = Math.round((endTime - startTime) / 60000);
+
+            return {
+              title: first.phase ? (first.phase.charAt(0).toUpperCase() + first.phase.slice(1) + " Session") : "Focus Session",
+              status: isStopped ? "completed" : last.status,
+              mins: durationMins || Math.round((first.remaining_seconds || 0) / 60) || 25,
+              score: last.score || first.score || 75,
+              poms: Math.max(1, Math.floor(durationMins / 25)),
+              time: first.started_at || first.ts,
+            };
+          });
+
+          // Sort sessions by time descending
+          setSessions(groupedSessions.sort((a, b) => new Date(b.time) - new Date(a.time)));
         }
       } catch (err) {
         // Fallback to mock sessions
@@ -127,7 +148,7 @@ export default function HistoryView() {
               <div
                 style={{
                   width: 42,
-                  height: 42,
+                   height: 42,
                   borderRadius: 11,
                   background: `${scoreColor(s.score)}12`,
                   display: "flex",

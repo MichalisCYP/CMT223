@@ -38,10 +38,12 @@ class Repository:
                     ts TEXT NOT NULL,
                     status TEXT NOT NULL,
                     phase TEXT NOT NULL,
-                    remaining_seconds INTEGER NOT NULL
+                    remaining_seconds INTEGER NOT NULL,
+                    started_at TEXT
                 )
                 """
             )
+            self._ensure_column(self._conn, "session_event", "started_at", "TEXT")
             self._conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS focus_log (
@@ -80,8 +82,8 @@ class Repository:
         with self._lock:
             self._conn.execute(
                 """
-                INSERT INTO session_event(ts, status, phase, remaining_seconds)
-                VALUES(:updated_at, :status, :phase, :remaining_seconds)
+                INSERT INTO session_event(ts, status, phase, remaining_seconds, started_at)
+                VALUES(:updated_at, :status, :phase, :remaining_seconds, :started_at)
                 """,
                 payload,
             )

@@ -46,7 +46,7 @@ class SessionManager:
         self._status = "stopped"
         self._phase = "focus"
         self._remaining_seconds = self._focus_seconds
-        self._started_at = ""
+        # self._started_at is preserved so the stopped event can be grouped
         return self.snapshot()
 
     def handle_button_event(self, event_name: str, now_iso: str) -> SessionSnapshot:
