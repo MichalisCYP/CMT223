@@ -128,6 +128,9 @@ class OledSessionDisplay:
                 asset_path = os.path.join(os.path.dirname(__file__), "assets", "bg.png")
                 if os.path.exists(asset_path):
                     self._background = image_module.open(asset_path).convert("1").resize((96, 96))
+                    print(f"[OLED] Background loaded from {asset_path}")
+                else:
+                    print(f"[OLED] Background file NOT FOUND at {asset_path}")
             except Exception as ex:
                 print(f"[OLED] Background load failed: {ex}")
 
@@ -164,13 +167,14 @@ class OledSessionDisplay:
 
         try:
             with self._canvas(self._device) as draw:
-                # 1. Background Image
+                # 1. Background (Active Area 96x96)
                 if self._background:
+                    # Draw the tropical beach silhouette
                     draw.bitmap((0, 0), self._background, fill="white")
-                    # Subtle overlay to ensure text readability if background is too busy
-                    # draw.rectangle((10, 5, 86, 90), fill="black") 
                 else:
+                    # Fallback border if image not found
                     draw.rectangle((0, 0, 95, 95), outline="white", width=1)
+                    draw.line((10, 30, 86, 30), fill="white")
 
                 # 2. Status (Centered, Top)
                 try:
