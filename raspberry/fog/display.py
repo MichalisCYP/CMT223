@@ -84,12 +84,7 @@ class LedEnvironmentDisplay:
 
         if status == "RUNNING":
             if phase == "FOCUS":
-                if score >= 80:
-                    self._set_rgb(0, 255, 0)   # Green: Good Focus
-                elif score >= 50:
-                    self._set_rgb(255, 200, 0) # Yellow/Orange: Warning
-                else:
-                    self._set_rgb(255, 0, 0)   # Red: Distracted
+                self._set_rgb(0, 255, 255)     # Tropical Turquoise
             else:
                 self._set_rgb(0, 100, 255)     # Blue: Break time
         elif status == "PAUSED":
@@ -98,7 +93,7 @@ class LedEnvironmentDisplay:
             self._set_rgb(128, 0, 128)         # Purple: Stopped/Idle
 
         # 2. Format Line 1: Center [PHASE]
-        display_phase = "FOCUS FLOW" if phase == "FOCUS" else phase
+        display_phase = "FLOW" if phase == "FOCUS" else phase
         l1 = "{:^16}".format(display_phase[:16])
 
         # 3. Format Line 2: T:XX H:XX F:XX
@@ -114,24 +109,32 @@ class OledSessionDisplay:
         self._font_status = None
         self._font_timer = None
         self._font_phase = None
+        self._background = None
         try:
             serial_module = importlib.import_module("luma.core.interface.serial")
             render_module = importlib.import_module("luma.core.render")
             oled_module = importlib.import_module("luma.oled.device")
             imagefont_module = importlib.import_module("PIL.ImageFont")
+            image_module = importlib.import_module("PIL.Image")
             
             # Detected address 0x3C on Port 1
             serial = serial_module.i2c(port=1, address=0x3C)
             
-            # Fix: Initialize at 128x128 to satisfy the luma.oled driver constraints.
-            # The SH1107G driver IC supports this, even though our panel uses 96x96.
             self._device = oled_module.sh1107(serial, width=128, height=128, rotate=0)
-            
             self._canvas = render_module.canvas
+            
+            # Load Background
             try:
-                # Attempt to load premium fonts, fallback to default
-                self._font_status = imagefont_module.truetype("DejaVuSans-Bold.ttf", 20)
-                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 32)
+                asset_path = os.path.join(os.path.dirname(__file__), "assets", "bg.png")
+                if os.path.exists(asset_path):
+                    self._background = image_module.open(asset_path).convert("1").resize((96, 96))
+            except Exception as ex:
+                print(f"[OLED] Background load failed: {ex}")
+
+            try:
+                # Even larger fonts
+                self._font_status = imagefont_module.truetype("DejaVuSans-Bold.ttf", 22)
+                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 40)
                 self._font_phase = imagefont_module.truetype("DejaVuSans.ttf", 14)
             except Exception:
                 default = imagefont_module.load_default()
@@ -140,7 +143,7 @@ class OledSessionDisplay:
                 self._font_phase = default
                 
             self._oled_available = True
-            print("[OLED] SH1107G initialized with enhanced fonts")
+            print("[OLED] SH1107G initialized with image background and ultra-large fonts")
         except Exception as ex:
             print(f"[OLED] Init failed: {ex}")
 
@@ -161,40 +164,38 @@ class OledSessionDisplay:
 
         try:
             with self._canvas(self._device) as draw:
-                # 1. Background Frame (Active Area 96x96)
-                draw.rectangle((0, 0, 95, 95), outline="white", width=1)
-                draw.line((10, 30, 86, 30), fill="white") # Upper separator
-                draw.line((10, 78, 86, 78), fill="white") # Lower separator
-                
+                # 1. Background Image
+                if self._background:
+                    draw.bitmap((0, 0), self._background, fill="white")
+                    # Subtle overlay to ensure text readability if background is too busy
+                    # draw.rectangle((10, 5, 86, 90), fill="black") 
+                else:
+                    draw.rectangle((0, 0, 95, 95), outline="white", width=1)
+
                 # 2. Status (Centered, Top)
                 try:
                     bbox = draw.textbbox((0, 0), status, font=self._font_status)
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(status, font=self._font_status)
-                draw.text(((96 - w) // 2, 6), status, fill="white", font=self._font_status)
+                draw.text(((96 - w) // 2, 4), status, fill="white", font=self._font_status)
                 
-                # 3. Phase (Centered, below separator)
-                try:
-                    bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
-                    w = bbox[2] - bbox[0]
-                except AttributeError:
-                    w, _ = draw.textsize(phase, font=self._font_phase)
-                draw.text(((96 - w) // 2, 34), phase, fill="white", font=self._font_phase)
+                # 3. Phase (Centered)
+                if phase != "FOCUS":
+                    try:
+                        bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
+                        w = bbox[2] - bbox[0]
+                    except AttributeError:
+                        w, _ = draw.textsize(phase, font=self._font_phase)
+                    draw.text(((96 - w) // 2, 30), phase, fill="white", font=self._font_phase)
                 
-                # 4. Timer (Centered, Middle)
+                # 4. Timer (Centered, Bottom)
                 try:
                     bbox = draw.textbbox((0, 0), timer, font=self._font_timer)
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(timer, font=self._font_timer)
                 draw.text(((96 - w) // 2, 48), timer, fill="white", font=self._font_timer)
-                
-                # 5. Decoration: subtle corner marks
-                draw.line((2, 2, 8, 2), fill="white")
-                draw.line((2, 2, 2, 8), fill="white")
-                draw.line((88, 2, 94, 2), fill="white")
-                draw.line((94, 2, 94, 8), fill="white")
                 
         except Exception as ex:
             print(f"[OLED] Render Error: {ex}")
