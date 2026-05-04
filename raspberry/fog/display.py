@@ -111,8 +111,9 @@ class OledSessionDisplay:
     def __init__(self) -> None:
         self._oled_available = False
         self._device = None
-        self._font_small = None
+        self._font_status = None
         self._font_timer = None
+        self._font_phase = None
         try:
             serial_module = importlib.import_module("luma.core.interface.serial")
             render_module = importlib.import_module("luma.core.render")
@@ -127,13 +128,19 @@ class OledSessionDisplay:
             self._device = oled_module.sh1107(serial, width=128, height=128, rotate=0)
             
             self._canvas = render_module.canvas
-            self._font_small = imagefont_module.load_default()
             try:
-                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 28)
+                # Attempt to load premium fonts, fallback to default
+                self._font_status = imagefont_module.truetype("DejaVuSans-Bold.ttf", 20)
+                self._font_timer = imagefont_module.truetype("DejaVuSans.ttf", 32)
+                self._font_phase = imagefont_module.truetype("DejaVuSans.ttf", 14)
             except Exception:
-                self._font_timer = imagefont_module.load_default()
+                default = imagefont_module.load_default()
+                self._font_status = default
+                self._font_timer = default
+                self._font_phase = default
+                
             self._oled_available = True
-            print("[OLED] SH1107G initialized (Buffered at 128x128)")
+            print("[OLED] SH1107G initialized with enhanced fonts")
         except Exception as ex:
             print(f"[OLED] Init failed: {ex}")
 
@@ -151,15 +158,43 @@ class OledSessionDisplay:
         status = session_state.get("status", "STOPPED").upper()
         timer = self._format_timer(session_state.get("remaining_seconds", 0))
         phase = str(session_state.get("phase", "focus")).upper()
-        focus = f"Focus: {focus_state.get('score', 0)}%"
 
         try:
             with self._canvas(self._device) as draw:
-                # IMPORTANT: Only draw within the 96x96 Active Area.
-                # Data outside 96x96 will not be visible on your physical panel.
-                draw.text((0, 0), status[:12], fill="white", font=self._font_small)
-                draw.text((0, 14), phase[:12], fill="white", font=self._font_small)
-                draw.text((6, 34), timer, fill="white", font=self._font_timer)
-                draw.text((0, 82), focus[:20], fill="white", font=self._font_small)
+                # 1. Background Frame (Active Area 96x96)
+                draw.rectangle((0, 0, 95, 95), outline="white", width=1)
+                draw.line((10, 30, 86, 30), fill="white") # Upper separator
+                draw.line((10, 78, 86, 78), fill="white") # Lower separator
+                
+                # 2. Status (Centered, Top)
+                try:
+                    bbox = draw.textbbox((0, 0), status, font=self._font_status)
+                    w = bbox[2] - bbox[0]
+                except AttributeError:
+                    w, _ = draw.textsize(status, font=self._font_status)
+                draw.text(((96 - w) // 2, 6), status, fill="white", font=self._font_status)
+                
+                # 3. Phase (Centered, below separator)
+                try:
+                    bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
+                    w = bbox[2] - bbox[0]
+                except AttributeError:
+                    w, _ = draw.textsize(phase, font=self._font_phase)
+                draw.text(((96 - w) // 2, 34), phase, fill="white", font=self._font_phase)
+                
+                # 4. Timer (Centered, Middle)
+                try:
+                    bbox = draw.textbbox((0, 0), timer, font=self._font_timer)
+                    w = bbox[2] - bbox[0]
+                except AttributeError:
+                    w, _ = draw.textsize(timer, font=self._font_timer)
+                draw.text(((96 - w) // 2, 48), timer, fill="white", font=self._font_timer)
+                
+                # 5. Decoration: subtle corner marks
+                draw.line((2, 2, 8, 2), fill="white")
+                draw.line((2, 2, 2, 8), fill="white")
+                draw.line((88, 2, 94, 2), fill="white")
+                draw.line((94, 2, 94, 8), fill="white")
+                
         except Exception as ex:
             print(f"[OLED] Render Error: {ex}")
