@@ -23,7 +23,7 @@ class SessionManager:
         self._last_tick = monotonic()
 
     def start(self, started_at: str) -> SessionSnapshot:
-        if self._status == "stopped":
+        if self._status in {"stopped", "break"}:
             self._status = "running"
             self._phase = "focus"
             self._remaining_seconds = self._focus_seconds
@@ -43,26 +43,38 @@ class SessionManager:
         return self.snapshot()
 
     def stop(self) -> SessionSnapshot:
+        """Transitions to the break state automatically."""
+        if self._status in {"running", "paused"}:
+            self._status = "break"
+            self._phase = "break"
+            self._remaining_seconds = self._break_seconds
+            self._last_tick = monotonic()
+        return self.snapshot()
+
+    def reset(self) -> SessionSnapshot:
+        """Returns the session to the default idle state."""
         self._status = "stopped"
         self._phase = "focus"
         self._remaining_seconds = self._focus_seconds
-        # self._started_at is preserved so the stopped event can be grouped
         return self.snapshot()
 
     def handle_button_event(self, event_name: str, now_iso: str) -> SessionSnapshot:
         event = event_name.strip().upper()
 
-        # MVP mapping: each click toggles the session between start and stop.
         if event in {"SHORT", "CLICK", "TOGGLE"}:
             if self._status == "stopped":
                 return self.start(now_iso)
+            if self._status == "break":
+                return self.reset()
             return self.stop()
         if event == "LONG":
+            if self._status == "break":
+                return self.reset()
             return self.stop()
         return self.snapshot()
 
     def tick(self) -> SessionSnapshot:
-        if self._status != "running":
+        if self._status not in {"running", "break"}:
             return self.snapshot()
 
         now = monotonic()
@@ -72,13 +84,14 @@ class SessionManager:
 
         self._last_tick = now
         self._remaining_seconds = max(0, self._remaining_seconds - elapsed)
+        
         if self._remaining_seconds == 0:
-            if self._phase == "focus":
-                self._phase = "break"
-                self._remaining_seconds = self._break_seconds
-            else:
-                self._phase = "focus"
-                self._remaining_seconds = self._focus_seconds
+            if self._status == "running":
+                # Focus finished -> start automatic break
+                self.stop()
+            elif self._status == "break":
+                # Break finished -> reset to idle
+                self.reset()
 
         return self.snapshot()
 

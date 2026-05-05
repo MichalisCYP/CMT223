@@ -88,6 +88,8 @@ class LedEnvironmentDisplay:
                 self._set_rgb(0, 255, 255)     # Tropical Turquoise
             else:
                 self._set_rgb(0, 100, 255)     # Blue: Break time
+        elif status == "BREAK":
+            self._set_rgb(0, 100, 255)         # Blue: Break time
         elif status == "PAUSED":
             self._set_rgb(255, 255, 0)         # Bright Yellow: Paused
         else:

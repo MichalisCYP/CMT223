@@ -163,7 +163,7 @@ class SessionWorker(Worker):
                 self._persist_snapshot()
             self._last_button_state = button_state
 
-            #button 2: Pause/Resume on rising edge
+            #button 2: Pause/Resume/Reset-on-break on rising edge
             if button2_state == 1 and self._last_button2_state == 0:
                 previous = self._manager.snapshot()
                 if previous.status == "running":
@@ -172,13 +172,17 @@ class SessionWorker(Worker):
                 elif previous.status == "paused":
                     current = self._manager.resume()
                     print("Session resumed: timer={}".format(self._format_mmss(current.remaining_seconds)))
+                elif previous.status == "break":
+                    current = self._manager.reset()
+                    print("Session break cancelled, reset to idle")
                 self._persist_snapshot()
             self._last_button2_state = button2_state
 
             tick_snapshot = self._manager.tick()
-            if tick_snapshot.status == "running" and tick_snapshot.remaining_seconds != self._last_logged_remaining:
+            if tick_snapshot.status in {"running", "break"} and tick_snapshot.remaining_seconds != self._last_logged_remaining:
                 print(
-                    "Session timer: phase={}, remaining={} ({}s)".format(
+                    "Session timer [{}]: phase={}, remaining={} ({}s)".format(
+                        tick_snapshot.status,
                         tick_snapshot.phase,
                         self._format_mmss(tick_snapshot.remaining_seconds),
                         tick_snapshot.remaining_seconds,
@@ -225,6 +229,9 @@ class GroveWorker(Worker):
                     elif snap.status == "paused":
                         self._manager.resume()
                         print("Session resumed by Grove button")
+                    elif snap.status == "break":
+                        self._manager.reset()
+                        print("Session break cancelled by Grove button")
                 self._last_button_state = button_state
             except IOError:
                 pass
