@@ -65,19 +65,7 @@ export default function LiveView({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Label>Session</Label>
-          {isSynced && (
-            <span style={{ 
-              fontSize: 9, 
-              fontWeight: 800, 
-              color: T.accent, 
-              background: "rgba(52,211,153,0.12)", 
-              padding: "2px 6px", 
-              borderRadius: 6,
-              border: "1px solid rgba(52,211,153,0.2)"
-            }}>
-              FOG SYNCED
-            </span>
-          )}
+
         </div>
         {active ? (
           <>
@@ -336,66 +324,9 @@ export default function LiveView({
         )}
       </Card>
 
-      {/* Tutor Buddy Voice */}
-      <Card
-        delay={0.1}
-        style={{
-          minHeight: 320,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-        }}
-      >
-        <Label>Ask Tutor Buddy A Question</Label>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            alignItems: "center",
-            justifyContent: "center",
-            flex: 1,
-          }}
-        >
-          <button
-            onClick={startDictation}
-            disabled={voiceListening}
-            title="Use microphone"
-            style={{
-              width: 150,
-              height: 150,
-              borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: voiceListening
-                ? T.accentDim
-                : "rgba(255,255,255,0.03)",
-              color: voiceListening ? T.accent : T.muted,
-              cursor: voiceListening ? "default" : "pointer",
-              fontWeight: 800,
-              fontSize: 58,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            🎤
-          </button>
-          {voiceListening && (
-            <div style={{ fontSize: 12, color: T.accent }}>
-              Listening…
-            </div>
-          )}
-          {voiceError && (
-            <div style={{ fontSize: 12, color: T.danger }}>
-              {voiceError}
-            </div>
-          )}
-        </div>
-      </Card>
-
       {/* Sensors */}
       <Card delay={0.15}>
-        <Label tag={envOk ? "AWS LIVE" : "MOCK"} tagLive={envOk}>
+        <Label tag={envOk ? "AWS LIVE" : "OFFLINE"} tagLive={envOk}>
           Environment
         </Label>
         <div
@@ -473,6 +404,63 @@ export default function LiveView({
             }}
           />
           Motion {sensors.motion ? "detected" : "none"}
+        </div>
+      </Card>
+
+      {/* Tutor Buddy Voice */}
+      <Card
+        delay={0.1}
+        style={{
+          minHeight: 320,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
+        <Label>Ask Tutor Buddy A Question</Label>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            flex: 1,
+          }}
+        >
+          <button
+            onClick={startDictation}
+            disabled={voiceListening}
+            title="Use microphone"
+            style={{
+              width: 150,
+              height: 150,
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: voiceListening
+                ? T.accentDim
+                : "rgba(255,255,255,0.03)",
+              color: voiceListening ? T.accent : T.muted,
+              cursor: voiceListening ? "default" : "pointer",
+              fontWeight: 800,
+              fontSize: 58,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            🎤
+          </button>
+          {voiceListening && (
+            <div style={{ fontSize: 12, color: T.accent }}>
+              Listening…
+            </div>
+          )}
+          {voiceError && (
+            <div style={{ fontSize: 12, color: T.danger }}>
+              {voiceError}
+            </div>
+          )}
         </div>
       </Card>
 

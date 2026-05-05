@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api/client';
-import { MOCK_SESSIONS } from '../../api/client';
 import { T, tooltipStyle } from '../../constants/theme';
 import { timeAgo, scoreColor } from '../../utils/helpers';
 import Card from '../../components/ui/Card';
@@ -8,47 +7,83 @@ import Label from '../../components/ui/Label';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function HistoryView() {
-  const [sessions, setSessions] = useState(MOCK_SESSIONS);
+  const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await api("/session/history?limit=20");
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Group by started_at to collapse events belonging to the same session
-          const groups = data.reduce((acc, s) => {
-            const sessionId = s.started_at || s.ts;
-            if (!acc[sessionId]) acc[sessionId] = [];
-            acc[sessionId].push(s);
-            return acc;
-          }, {});
+        const [sessionData, focusData] = await Promise.all([
+          api("/session/history?limit=40"),
+          api("/focus/history?limit=200")
+        ]);
 
-          const groupedSessions = Object.values(groups).map((events) => {
-            // Sort events by timestamp within the group
+        if (sessionData && Array.isArray(sessionData) && sessionData.length > 0) {
+          // 1. Group session events into logical sessions
+          const groups = [];
+          
+          sessionData.sort((a, b) => new Date(a.ts) - new Date(b.ts)).forEach(s => {
+            const sTime = new Date(s.ts);
+            // Try to find a group to join
+            let group = groups.find(g => {
+              // Primary match: same started_at
+              if (s.started_at && g.started_at === s.started_at) return true;
+              // Secondary match: within 30 mins of the last event in that group
+              if (!s.started_at || !g.started_at) {
+                const lastEvent = g.events[g.events.length - 1];
+                const diff = Math.abs(sTime - new Date(lastEvent.ts)) / 60000;
+                return diff < 30;
+              }
+              return false;
+            });
+
+            if (group) {
+              group.events.push(s);
+              // Update group's started_at if we found one
+              if (s.started_at) group.started_at = s.started_at;
+            } else {
+              groups.push({ started_at: s.started_at, events: [s] });
+            }
+          });
+
+          const groupedSessions = groups.map((g) => {
+            const events = g.events;
             const sorted = [...events].sort((a, b) => new Date(a.ts) - new Date(b.ts));
             const first = sorted[0];
             const last = sorted[sorted.length - 1];
             
-            const isStopped = sorted.some(e => e.status === 'stopped');
-            const startTime = new Date(first.ts);
-            const endTime = new Date(last.ts);
-            const durationMins = Math.round((endTime - startTime) / 60000);
+            const isStopped = sorted.some(e => e.status === 'stopped' || e.status === 'break');
+            const startTime = new Date(first.started_at || first.ts);
+            const endTime = isStopped ? new Date(last.ts) : new Date();
+            
+            let durationMins = Math.round((endTime - startTime) / 60000);
+            if (durationMins <= 0 && last.started_at && last.ts !== last.started_at) {
+              durationMins = Math.round((new Date(last.ts) - new Date(last.started_at)) / 60000);
+            }
+
+            // 2. Associate focus scores that occurred during this session
+            const sessionScores = (focusData || []).filter(f => {
+              const fTime = new Date(f.ts);
+              return fTime >= startTime && fTime <= endTime;
+            });
+
+            const avgScore = sessionScores.length > 0 
+              ? Math.round(sessionScores.reduce((a, b) => a + (b.score || 0), 0) / sessionScores.length)
+              : (last.score || first.score || 0);
 
             return {
               title: first.phase ? (first.phase.charAt(0).toUpperCase() + first.phase.slice(1) + " Session") : "Focus Session",
               status: isStopped ? "completed" : last.status,
-              mins: durationMins || Math.round((first.remaining_seconds || 0) / 60) || 25,
-              score: last.score || first.score || 75,
-              poms: Math.max(1, Math.floor(durationMins / 25)),
+              mins: Math.max(0, durationMins),
+              score: avgScore,
+              poms: Math.max(0, Math.floor(durationMins / 25)),
               time: first.started_at || first.ts,
             };
           });
 
-          // Sort sessions by time descending
           setSessions(groupedSessions.sort((a, b) => new Date(b.time) - new Date(a.time)));
         }
       } catch (err) {
-        // Fallback to mock sessions
+        console.error("Failed to load history:", err);
       }
     })();
   }, []);

@@ -151,8 +151,8 @@ export default function Header({
       >
         <StatusDot ok={cvOk} label={cvOk ? "CV live" : "CV offline"} />
         <StatusDot
-          ok={envOk ? true : "warn"}
-          label={envOk ? "Sensors live" : "Sensors mock"}
+          ok={envOk}
+          label={envOk ? "Sensors live" : "Sensors offline"}
         />
       </div>
     </header>

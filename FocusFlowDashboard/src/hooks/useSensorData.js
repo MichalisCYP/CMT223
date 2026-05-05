@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, mockSensors } from '../api/client';
+import { api } from '../api/client';
 import { clockStr } from '../utils/helpers';
 
 const POLL_MS = 2000;
@@ -53,7 +53,13 @@ export default function useSensorData(active) {
             temp: envData.temperature || 0,
             hum: envData.humidity || 0,
           }
-        : mockSensors();
+        : {
+            light: 0,
+            sound: 0,
+            motion: 0,
+            temp: 0,
+            hum: 0,
+          };
       setSensors(s);
 
       // Compute CV Score
