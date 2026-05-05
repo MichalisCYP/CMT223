@@ -29,13 +29,13 @@ def parse_arduino_line(line: str) -> Dict[str, str]:
 
     try:
         data = json.loads(payload)
-        # Normalize keys to uppercase for consistency with field application
+        #normalise keys to uppercase for consistency
         fields: Dict[str, str] = {}
         for key, value in data.items():
             fields[key.upper()] = str(value)
         return fields
     except (json.JSONDecodeError, ValueError):
-        # Fall back to legacy formats if JSON parsing fails
+        #if JSON parsing fails
         if payload.lower().startswith("light:"):
             return {"LIGHT": payload.split(":", 1)[1].strip()}
         if payload.lower() == "movement":

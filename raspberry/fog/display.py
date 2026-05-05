@@ -15,7 +15,7 @@ class LedEnvironmentDisplay:
         
         try:
             import smbus
-            # Successfully detected on Bus 1
+            # detected on Bus 1
             self._bus = smbus.SMBus(1)
             self._has_display = True
             self._init_display()
@@ -26,10 +26,10 @@ class LedEnvironmentDisplay:
     def _init_display(self):
         if not self._has_display: return
         try:
-            # Initialize display settings once
-            self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x28) # 2-line mode
+            #init display settings once
+            self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x28) #2-line mode
             time.sleep(0.05)
-            self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x08 | 0x04) # Display ON, Cursor OFF
+            self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x08 | 0x04) #display ON, Cursor OFF
             self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x01) # Clear
             time.sleep(0.05)
         except Exception as ex:
@@ -54,7 +54,7 @@ class LedEnvironmentDisplay:
     def _set_text(self, text):
         if not self._has_display: return
         
-        # Normalize text to 32 characters (16 per line) to avoid clearing
+        #normalise text to 32 characters (16 per line)
         lines = text.split('\n')
         l1 = lines[0][:16].ljust(16)
         l2 = lines[1][:16].ljust(16) if len(lines) > 1 else "".ljust(16)
@@ -64,12 +64,12 @@ class LedEnvironmentDisplay:
             return
 
         try:
-            # Reset cursor to beginning instead of clearing to avoid flicker
+            #reset cursor to beginning instead of clearing to avoid flicker
             self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0x80) 
             
             for i, c in enumerate(full_text):
                 if i == 16:
-                    # Move to second line
+                    #move to second line
                     self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x80, 0xc0)
                 self._bus.write_byte_data(self._DISPLAY_TEXT_ADDR, 0x40, ord(c))
             
@@ -93,7 +93,7 @@ class LedEnvironmentDisplay:
         else:
             self._set_rgb(128, 0, 128)         # Purple: Stopped/Idle
 
-        # 2. Format Line 1: Center [PHASE]
+        # 2. Format Line 1: Center for the phase
         display_phase = "Focus Flow" if phase == "FOCUS" else phase
         l1 = "{:^16}".format(display_phase[:16])
 
@@ -176,14 +176,14 @@ class OledSessionDisplay:
 
         try:
             with self._canvas(self._device) as draw:
-                # 1. Background panel
+                #1. Background panel
                 draw.rectangle((0, self._background_y, 127, 127), outline="white")
                 if self._background:
                     draw.bitmap((0, self._background_y), self._background, fill="white")
                 else:
                     draw.line((0, self._background_y, 127, self._background_y), fill="white")
 
-                # 2. Status (Centered, Top)
+                # 2.Status (Centered, Top)
                 try:
                     bbox = draw.textbbox((0, 0), status, font=self._font_status)
                     w = bbox[2] - bbox[0]
@@ -191,7 +191,7 @@ class OledSessionDisplay:
                     w, _ = draw.textsize(status, font=self._font_status)
                 draw.text(((display_width - w) // 2, 2), status, fill="white", font=self._font_status)
                 
-                # 3. Phase (Centered, only if not FOCUS)
+                #3. Phase (centered, only if not FOCUS)
                 if phase != "FOCUS":
                     try:
                         bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
@@ -206,7 +206,7 @@ class OledSessionDisplay:
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(timer, font=self._font_timer)
-                # Shift timer up/down based on phase visibility
+                #shift timer up/down based on phase visibility
                 timer_y = 24 if phase == "FOCUS" else 36
                 draw.text(((display_width - w) // 2, timer_y), timer, fill="white", font=self._font_timer)
                 

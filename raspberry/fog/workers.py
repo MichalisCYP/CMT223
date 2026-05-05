@@ -82,6 +82,7 @@ class ArduinoIngestWorker(Worker):
         if "BUTTON2" in fields:
             updates["button2"] = 1 if int(float(fields["BUTTON2"])) > 0 else 0
 
+        #update global state and write to local database
         if updates:
             self._state.update_environment(**updates)
             snapshot = self._state.snapshot()["environment"]
@@ -133,7 +134,7 @@ class SessionWorker(Worker):
             started_at=snap.started_at,
         )
         
-        # Only write to DB if status or phase changed
+        #we only write to the DB if status or phase changed
         current_state = (snap.status, snap.phase)
         if current_state != self._last_session_state:
             state_session = self._state.snapshot()["session"]
@@ -144,10 +145,11 @@ class SessionWorker(Worker):
         self._persist_snapshot()
         while not self.stop_event.wait(self._config.session_tick_seconds):
             environment = self._state.snapshot()["environment"]
+            #buttons are both parsed from the Arduino Ingest worker and accessed here via SharedState
             button_state = int(environment.get("button", 0))
             button2_state = int(environment.get("button2", 0))
 
-            # Button 1: Toggle only on the rising edge so a held button does not repeatedly toggle.
+            #Button 1:toggle only on rising edge so a held button does not repeatedly toggle.
             if button_state == 1 and self._last_button_state == 0:
                 previous = self._manager.snapshot()
                 current = self._manager.handle_button_event("CLICK", utc_now_iso())
@@ -161,7 +163,7 @@ class SessionWorker(Worker):
                 self._persist_snapshot()
             self._last_button_state = button_state
 
-            # Button 2: Pause/Resume on rising edge
+            #button 2: Pause/Resume on rising edge
             if button2_state == 1 and self._last_button2_state == 0:
                 previous = self._manager.snapshot()
                 if previous.status == "running":
@@ -239,6 +241,8 @@ class FocusWorker(Worker):
         self._state = state
         self._repository = repository
 
+    #The focus worker calculates the Enviromental Quality focus Score and updates the global state and local DB.
+
     def _compute_focus(self) -> tuple[int, str, str]:
         snapshot = self._state.snapshot()
         env = snapshot["environment"]
@@ -312,7 +316,7 @@ class DisplayWorker(Worker):
             self._oled.render(snapshot["session"], snapshot["focus"])
 
 
-class AwsIotPublisherWorker(Worker):
+class AwsIotPublisherWorker(Worker): #reference: https://docs.aws.amazon.com/iot/latest/developerguide/iot-python-sdk.html
     """
     Publishes sensor data to AWS IoT Core using MQTT (v5 with fallback to v1).
     
@@ -349,7 +353,7 @@ class AwsIotPublisherWorker(Worker):
         return all(required)
 
     def _connect_mqtt5(self) -> bool:
-        """Try MQTT v5 connection (preferred for modern AWS SDK)."""
+        """MQTT v5 connection (modern AWS SDK)."""
         try:
             mqtt5_builder = importlib.import_module("awsiot.mqtt5_client_builder")
             mqtt5 = importlib.import_module("awscrt.mqtt5")

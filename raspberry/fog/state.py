@@ -6,6 +6,7 @@ from typing import Dict, Any
 
 from .utils import utc_now_iso
 
+# The state allows any class to access the environment, session and focus states
 
 @dataclass
 class EnvironmentState:

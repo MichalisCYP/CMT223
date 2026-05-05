@@ -8,7 +8,7 @@ class UsbSerialTransport {
   UsbSerialTransport() : serial_(Serial) {}
 
   void begin(long baudRate) {
-    // Serial is already initialized in the main sketch before transport creation
+    // Serial is already initialised in the main sketch before transport creation
     (void)baudRate;  // Unused parameter
   }
 

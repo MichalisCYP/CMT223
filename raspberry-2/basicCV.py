@@ -24,6 +24,9 @@ Usage:
   python3 cv_node.py --headless --hub-url http://192.168.1.50:8000/api/cv/ingest
 """
 
+#Tutorial: https://docs.opencv.org/4.x/d2/d99/tutorial_js_face_detection.html
+# We also experimented with https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/face_mesh.md but faced compatibility issues
+
 import cv2
 import os
 import sys
