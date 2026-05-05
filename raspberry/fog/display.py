@@ -95,13 +95,29 @@ class LedEnvironmentDisplay:
         else:
             self._set_rgb(128, 0, 128)         # Purple: Stopped/Idle
 
-        # 2. Format Line 1: Center for the phase
-        display_phase = "Focus Flow" if phase == "FOCUS" else phase
-        l1 = "{:^16}".format(display_phase[:16])
-
-        # 3. Format Line 2: T:XX H:XX F:XX
+        # 2. Format Line 1: Focus Flow or Environmental Warning
+        l1_text = "Focus Flow"
+        
+        # Environmental Checks (Action-oriented warnings)
+        light = environment.get("light", 500)
+        sound = environment.get("sound", 0)
         temp = environment.get("temperature", 0)
         hum = environment.get("humidity", 0)
+
+        if sound > 600:
+            l1_text = "Reduce Noise"
+        elif light < 180:
+            l1_text = "Increase Light"
+        elif temp > 29:
+            l1_text = "Cool Down"
+        elif temp < 18 and temp != 0:
+            l1_text = "Warm Up"
+        elif hum > 70:
+            l1_text = "Dehumidify"
+
+        l1 = "{:^16}".format(l1_text[:16])
+
+        # 3. Format Line 2: T:XX H:XX F:XX
         l2 = "T:{:.0f} H:{:.0f}% F:{:d}%".format(temp, hum, int(score))
 
         self._set_text(f"{l1}\n{l2}")
