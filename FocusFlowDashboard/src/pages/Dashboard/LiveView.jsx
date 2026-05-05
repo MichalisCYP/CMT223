@@ -12,8 +12,8 @@ import useSpeechDictation from '../../hooks/useSpeechDictation';
 
 export default function LiveView({
   // Timer State
-  active, paused, phase, sessionMinutes, timer, poms, isSynced,
-  setPaused, adjustSessionMinutes, startSession, stopSession,
+  active, paused, phase, sessionMinutes, timer, poms, isSynced, status,
+  setPaused, adjustSessionMinutes, startSession, stopSession, resetSession,
   // Sensor State
   sensors, focusScore, cvScore, envScore, focusConf, focusReasons, envOk, focusHistory, sensorHistory,
   // Actions
@@ -90,40 +90,61 @@ export default function LiveView({
               Pomodoro {poms + 1} · Focus {sessionMinutes}m
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button
-                onClick={() => setPaused((v) => !v)}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 10,
-                  border: `1px solid ${paused ? "rgba(52,211,153,0.24)" : T.border}`,
-                  background: paused
-                    ? T.accentDim
-                    : "rgba(255,255,255,0.03)",
-                  color: paused ? T.accent : T.muted,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: T.sans,
-                }}
-              >
-                {paused ? "Resume" : "Pause"}
-              </button>
-              <button
-                onClick={stopSession}
-                style={{
-                  padding: "8px 20px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(248,113,113,0.24)",
-                  background: "rgba(248,113,113,0.08)",
-                  color: T.danger,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: T.sans,
-                }}
-              >
-                Finish Session
-              </button>
+              {status === "break" ? (
+                <button
+                  onClick={resetSession}
+                  style={{
+                    padding: "8px 24px",
+                    borderRadius: 10,
+                    border: `1px solid ${T.blue}`,
+                    background: "rgba(59,130,246,0.08)",
+                    color: T.blue,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    fontFamily: T.sans,
+                  }}
+                >
+                  Skip Break
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setPaused((v) => !v)}
+                    style={{
+                      padding: "8px 20px",
+                      borderRadius: 10,
+                      border: `1px solid ${paused ? "rgba(52,211,153,0.24)" : T.border}`,
+                      background: paused
+                        ? T.accentDim
+                        : "rgba(255,255,255,0.03)",
+                      color: paused ? T.accent : T.muted,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      fontFamily: T.sans,
+                    }}
+                  >
+                    {paused ? "Resume" : "Pause"}
+                  </button>
+                  <button
+                    onClick={stopSession}
+                    style={{
+                      padding: "8px 20px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(248,113,113,0.24)",
+                      background: "rgba(248,113,113,0.08)",
+                      color: T.danger,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      fontFamily: T.sans,
+                    }}
+                  >
+                    Finish Session
+                  </button>
+                </>
+              )}
             </div>
           </>
         ) : (

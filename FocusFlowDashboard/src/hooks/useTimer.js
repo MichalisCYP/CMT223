@@ -11,6 +11,7 @@ export default function useTimer() {
   const [poms, setPoms] = useState(0);
   const timerRef = useRef(null);
   const [isSynced, setIsSynced] = useState(false);
+  const [status, setStatus] = useState("stopped");
 
   // Sync with Fog Node if API is available
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function useTimer() {
         setPaused(session.status === "paused");
         setPhase(session.phase);
         setTimer(session.remaining_seconds);
+        setStatus(session.status);
         setIsSynced(true);
       } catch (err) {
         setIsSynced(false);
@@ -49,9 +51,12 @@ export default function useTimer() {
             if (phase === "focus") {
               setPoms((p) => p + 1);
               setPhase("break");
+              setStatus("break");
               return 5 * 60;
             }
             setPhase("focus");
+            setStatus("stopped");
+            setActive(false);
             return sessionMinutes * 60;
           }
           return t - 1;
@@ -99,10 +104,22 @@ export default function useTimer() {
       const ok = await callFog('stop');
       if (ok) return;
     }
+    // Mock behavior: transition to break
+    setPhase("break");
+    setTimer(5 * 60);
+    setStatus("break");
+  };
+
+  const resetSession = async () => {
+    if (FOG_API) {
+      const ok = await callFog('reset');
+      if (ok) return;
+    }
     setActive(false);
     setPaused(false);
     setTimer(sessionMinutes * 60);
     setPhase("focus");
+    setStatus("stopped");
   };
 
   const togglePause = async () => {
@@ -121,10 +138,12 @@ export default function useTimer() {
     sessionMinutes,
     timer,
     poms,
+    status,
     isSynced,
     setPaused: togglePause,
     adjustSessionMinutes,
     startSession,
-    stopSession
+    stopSession,
+    resetSession
   };
 }

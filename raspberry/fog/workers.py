@@ -586,6 +586,9 @@ class RpcWorker(Worker):
                 elif self.path == "/api/session/resume":
                     worker_self._manager.resume()
                     self._send_json({"ok": True, "action": "resume"})
+                elif self.path == "/api/session/reset":
+                    worker_self._manager.reset()
+                    self._send_json({"ok": True, "action": "reset"})
                 else:
                     self.send_error(404)
 
