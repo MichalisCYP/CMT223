@@ -18,7 +18,14 @@ const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 const PEER_SHARED_TOKEN = process.env.PEER_SHARED_TOKEN || "";
 const CV_API = process.env.CV_API || "https://6q2yskmyc7.execute-api.eu-west-2.amazonaws.com/prod";
 
-const peerLogPath = path.join(__dirname, "data", "peer-log.jsonl");
+const peerLogDir = path.join(__dirname, "data");
+const peerLogPath = path.join(peerLogDir, "peer-log.jsonl");
+
+// Ensure data directory exists for logging
+if (!fs.existsSync(peerLogDir)) {
+  fs.mkdirSync(peerLogDir, { recursive: true });
+}
+
 let latestPeerPayload = null;
 
 app.use(cors());
@@ -231,5 +238,8 @@ app.post("/api/agent/chat", async (req, res) => {
 });
 
 app.listen(port, "0.0.0.0", () => {
-  console.log(`FocusFlow AI API listening on http://0.0.0.0:${port}`);
+  console.log(`\n🚀 FocusFlow AI API listening on http://localhost:${port}`);
+  console.log(`📡 Model: ${GROQ_MODEL}`);
+  console.log(`🔑 Groq Key: ${GROQ_API_KEY ? "✅ Loaded" : "❌ Missing"}`);
+  console.log(`🔗 CV API: ${CV_API}\n`);
 });

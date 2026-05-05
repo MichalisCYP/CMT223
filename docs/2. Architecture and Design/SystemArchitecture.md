@@ -5,93 +5,102 @@ The FocusFlow system follows a tiered IoT architecture (Edge, Fog, Cloud) design
 ## High-Level Diagram
 
 ```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk", "htmlLabels": true}}}%%
 flowchart TB
- subgraph ARD["Arduino Sensor Node"]
-    direction LR
-        MCU["Atmega328P"]
-        S1["Grove Light A3"]
-        S2["Grove Sound A0"]
-        S3["Grove DHT D5"]
-        S4["Grove PIR D2"]
-        S5["Grove Ultrasonic D6"]
-        A1["LED Buttons D3/D7"]
-  end
- subgraph CV["Raspberry Pi CV Node"]
-        PROC["OpenCV/MediaPipe"]
-        CAM["CSI/USB Camera"]
-        SEC1["MQTT/TLS"]
-  end
- subgraph EDGE["Edge Layer: Sensing & Biometrics"]
-    direction TB
-        ARD
-        CV
-  end
- subgraph FOG["Fog Layer: Local Intelligence & Hub"]
-    direction TB
+    %% LAYOUT CONTROL
+    subgraph EDGE["Edge Layer: Sensing & Biometrics"]
+        direction LR
+        subgraph ARD["Arduino Sensor Node"]
+            direction TB
+            MCU["Atmega328P"]
+            S1["Grove Light A3"]
+            S2["Grove Sound A0"]
+            S3["Grove DHT D5"]
+            S4["Grove PIR D2"]
+            S5["Grove Ultrasonic D6"]
+            A1["LED Buttons D3/D7"]
+        end
+        subgraph CV["Raspberry Pi CV Node"]
+            direction TB
+            CAM["CSI/USB Camera"]
+            PROC["OpenCV/MediaPipe"]
+            SEC1["MQTT/TLS"]
+        end
+    end
+
+    subgraph FOG["Fog Layer: Local Intelligence & Hub"]
+        direction LR
         HUB["Pi Hub Controller"]
         DB1[("SQLite")]
         ALGO["Focus Analysis Worker"]
         INGEST["ArduinoIngestWorker"]
-            GROVE["GroveWorker"]
+        GROVE["GroveWorker"]
         SESSION["SessionWorker"]
         DIS["DisplayWorker"]
         PUB["AwsIotPublisherWorker"]
         RPC["RpcWorker"]
         LCD["Grove LCD I2C"]
         OLED["OLED Display I2C"]
-  end
- subgraph CLOUD["Cloud Layer: Aggregation & Services"]
-    direction TB
+    end
+
+    subgraph CLOUD["Cloud Layer: Aggregation & Services"]
+        direction LR
         IOT["AWS IoT Core"]
         API["Cloud Node API"]
         DB2[("Cloud Database")]
         ANL["Cloud Analytics"]
-  end
- subgraph VIEWS["Interactive Views"]
-    direction LR
-        LIVE["Live Environment"]
-        TRND["Productivity Trends"]
-        HIST["Session History"]
-  end
- subgraph DASH["FocusFlow Dashboard"]
-    direction TB
-        VZN["Visualization Engine"]
-        VIEWS
-  end
- subgraph CLIENT["Client Layer: User Interface"]
-        DASH
-  end
+    end
+
+    subgraph CLIENT["Client Layer: User Interface"]
+        direction TB
+        subgraph DASH["FocusFlow Dashboard"]
+            direction TB
+            VZN["Visualization Engine"]
+            subgraph VIEWS["Interactive Views"]
+                direction LR
+                LIVE["Live Environment"]
+                TRND["Productivity Trends"]
+                HIST["Session History"]
+            end
+        end
+    end
+
+    %% CONNECTIONS
     S1 -- Analog --- MCU
     S2 -- Analog --- MCU
     S3 -- Digital --- MCU
     S4 -- Digital --- MCU
     S5 -- Digital --- MCU
     A1 -- GPIO --- MCU
+
     CAM -- Frames --> PROC
-    PROC -- "Payload: {facePresent:bool, eyes_detected: bool...}" --> SEC1
-    HUB <--> DB1
+    PROC -- "Payload: {facePresent:bool, eyes_detected:bool...}" --> SEC1
+
+    MCU -- "USB Serial / JSON (Payload: {light, sound, move, temp, hum, distance_cm, button, button2})" --> INGEST
+    INGEST -- parsed environment data --> HUB
     HUB -- light, sound, distance, move, temperature --> ALGO
-      HUB -- grove button input --> GROVE
-      GROVE -- button events --> SESSION
+    HUB -- grove button input --> GROVE
+    GROVE -- button events --> SESSION
     HUB -- button events --> SESSION
+    HUB <--> DB1
+    ALGO -. "Inference: focus_score, reasons" .-> DB1
+
     SESSION -- session state --> LCD
     SESSION -- session state --> OLED
     HUB -- state snapshot --> DIS
-    DIS -- Env Metrics & Focus Score --> LCD
-    DIS -- Timer &amp; Session State --> OLED
+    DIS -- "Env Metrics & Focus Score" --> LCD
+    DIS -- "Timer & Session State" --> OLED
+
+    HUB -- state snapshot --> RPC
+    RPC -- "REST API / HTTP" --> VZN
+    API <-- "HTTPS / WebSockets" --> VZN
+    API -. "Aggregates: session_history, trends" .-> VZN
+
+    SEC1 -- "MQTT over TLS" --> IOT
+    PUB -- "MQTT over TLS" --> IOT
+    HUB -- sensor & session data --> PUB
     IOT --> API
     API --> DB2 & ANL
-    VZN --> VIEWS
-    MCU -- USB Serial / JSON (Payload: {light, sound, move, temp, hum, distance_cm, button, button2} --> INGEST
-    INGEST -- parsed environment data --> HUB
-    SEC1 -- MQTT over TLS --> IOT
-    HUB -- sensor & session data --> PUB
-    PUB -- MQTT over TLS --> IOT
-    HUB -- state snapshot --> RPC
-    RPC -- REST API / HTTP --> VZN
-    API <-- HTTPS / WebSockets --> VZN
-    ALGO -. Inference: focus_score, reasons .-> DB1
-    API -. Aggregates: session_history, trends .-> VZN
 ```
 
 ## 1. System Components
