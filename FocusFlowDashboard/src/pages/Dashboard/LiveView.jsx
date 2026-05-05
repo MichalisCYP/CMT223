@@ -10,6 +10,25 @@ import {
 } from "recharts";
 import useSpeechDictation from '../../hooks/useSpeechDictation';
 
+const AlertBadge = ({ text, color }) => (
+  <div style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "6px 12px",
+    background: `${color}15`,
+    border: `1px solid ${color}33`,
+    borderRadius: 8,
+    color: color,
+    fontSize: 11,
+    fontWeight: 700,
+    animation: "pulse 2s infinite"
+  }}>
+    <span style={{ fontSize: 14 }}>⚠️</span>
+    {text}
+  </div>
+);
+
 export default function LiveView({
   // Timer State
   active, paused, phase, sessionMinutes, timer, poms, isSynced, status,
@@ -240,54 +259,79 @@ export default function LiveView({
         }}
       >
         <Label>Focus</Label>
-        <FocusRing score={focusScore} confidence={focusConf} />
-        
-        <div style={{ 
-          display: "flex", 
-          gap: 15, 
-          marginTop: 4, 
-          padding: "8px 16px",
-          background: "rgba(255,255,255,0.02)",
-          borderRadius: 12,
-          border: `1px solid ${T.border}`
-        }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>CV Score</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{cvScore}</div>
-          </div>
-          <div style={{ width: 1, background: T.border }}></div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>Env Score</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.blue }}>{envScore}</div>
-          </div>
-        </div>
+        {active && phase === "focus" ? (
+          <>
+            <FocusRing score={focusScore} confidence={focusConf} />
+            
+            <div style={{ 
+              display: "flex", 
+              gap: 15, 
+              marginTop: 4, 
+              padding: "8px 16px",
+              background: "rgba(255,255,255,0.02)",
+              borderRadius: 12,
+              border: `1px solid ${T.border}`
+            }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>CV Score</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.accent }}>{cvScore}</div>
+              </div>
+              <div style={{ width: 1, background: T.border }}></div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: T.muted, textTransform: "uppercase", marginBottom: 2 }}>Env Score</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.blue }}>{envScore}</div>
+              </div>
+            </div>
 
-        {focusReasons.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              gap: 5,
-              flexWrap: "wrap",
-              justifyContent: "center",
-              marginTop: 6,
-            }}
-          >
-            {focusReasons.map((r, i) => (
-              <span
-                key={i}
+            {focusReasons.length > 0 && (
+              <div
                 style={{
-                  fontSize: 9,
-                  padding: "2px 10px",
-                  borderRadius: 20,
-                  background: "rgba(248,113,113,0.08)",
-                  color: T.danger,
-                  border: "1px solid rgba(248,113,113,0.12)",
-                  fontFamily: T.mono,
+                  display: "flex",
+                  gap: 5,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  marginTop: 6,
                 }}
               >
-                {r}
-              </span>
-            ))}
+                {focusReasons.map((r, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: 9,
+                      padding: "2px 10px",
+                      borderRadius: 20,
+                      background: "rgba(248,113,113,0.08)",
+                      color: T.danger,
+                      border: "1px solid rgba(248,113,113,0.12)",
+                      fontFamily: T.mono,
+                    }}
+                  >
+                    {r}
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ 
+            flex: 1, 
+            display: "flex", 
+            flexDirection: "column", 
+            alignItems: "center", 
+            justifyContent: "center",
+            color: T.dim,
+            textAlign: "center",
+            padding: "20px 0"
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>
+              {phase === "break" ? "☕" : "🔒"}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {phase === "break" ? "Break Time" : "Session Inactive"}
+            </div>
+            <div style={{ fontSize: 11, marginTop: 4, color: T.muted }}>
+              {phase === "break" ? "Enjoy your rest!" : "Start focus to track metrics"}
+            </div>
           </div>
         )}
       </Card>
@@ -391,6 +435,24 @@ export default function LiveView({
             color={T.danger}
           />
         </div>
+        
+        {/* Environmental Alerts */}
+        {(sensors.sound > 600 || sensors.light < 180 || sensors.temp > 29 || (sensors.temp < 18 && sensors.temp !== 0) || sensors.hum > 70) && (
+          <div style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: 6, 
+            marginTop: 14,
+            width: "100%"
+          }}>
+            {sensors.sound > 600 && <AlertBadge text="Reduce Noise" color={T.danger} />}
+            {sensors.light < 180 && <AlertBadge text="Increase Light" color={T.warn} />}
+            {sensors.temp > 29 && <AlertBadge text="Cool Down" color={T.warn} />}
+            {sensors.temp < 18 && sensors.temp !== 0 && <AlertBadge text="Warm Up" color={T.warn} />}
+            {sensors.hum > 70 && <AlertBadge text="Dehumidify" color={T.blue} />}
+          </div>
+        )}
+
         <div
           style={{
             display: "flex",
@@ -433,7 +495,11 @@ export default function LiveView({
             justifyContent: "center",
           }}
         >
-          {focusHistory.length < 3 ? (
+          {!(active && phase === "focus") ? (
+            <div style={{ color: T.dim, fontSize: 13 }}>
+              {phase === "break" ? "Resting... No trend data" : "Trend unavailable while idle"}
+            </div>
+          ) : focusHistory.length < 3 ? (
             <div style={{ color: T.dim, fontSize: 13 }}>
               Collecting data…
             </div>
