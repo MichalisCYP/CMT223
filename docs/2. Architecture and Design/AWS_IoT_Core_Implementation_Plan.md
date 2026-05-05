@@ -5,7 +5,6 @@
 Implement a cloud node on AWS that receives locally stored data from the Raspberry Pi Fog node, then serves that data to:
 
 - Dashboard (web)
-- Mobile app (optional after MVP)
 
 This plan is aligned to the current project architecture and codebase, especially:
 
@@ -32,7 +31,7 @@ Workers already run in background threads for ingest, session state, focus scori
 1. Fog node writes all data to SQLite first (local-first behavior).
 2. New background sync worker reads unsynced rows and publishes to AWS IoT Core over MQTT/TLS.
 3. AWS IoT Rules route messages to cloud storage.
-4. Cloud API reads cloud storage and serves dashboard/mobile queries.
+4. Cloud API reads cloud storage and serves dashboard queries.
 
 ### 3.2 AWS Services
 
@@ -41,14 +40,14 @@ Required for MVP:
 - AWS IoT Core (device connectivity, MQTT topics, rules)
 - DynamoDB (operational query store for app reads)
 - Lambda (rule transform and API handlers)
-- API Gateway (HTTPS endpoints for dashboard/mobile)
+  -- API Gateway (HTTPS endpoints for dashboard)
 - CloudWatch Logs (observability)
 - IAM (least-privilege access)
 
 Recommended:
 
 - Amazon Timestream (time-series analytics, optional if DynamoDB-only is sufficient for MVP)
-- Cognito (user auth for dashboard/mobile)
+  -- Cognito (user auth for dashboard)
 
 ## 4. MQTT Topic and Payload Design
 
@@ -208,7 +207,7 @@ Create table: `FocusFlowEvents`
 
 Store original payload and normalized fields for query efficiency.
 
-### 6.4 API Layer for Dashboard/Mobile
+### 6.4 API Layer for Dashboard
 
 Use API Gateway + Lambda endpoints:
 
@@ -216,7 +215,7 @@ Use API Gateway + Lambda endpoints:
 - `GET /api/sessions/recent?site_id=...&device_id=...`
 - `GET /api/focus/trend?site_id=...&device_id=...&from=...&to=...`
 
-Dashboard/mobile should call API, not IoT MQTT directly (for MVP simplicity and security).
+Dashboard should call API, not IoT MQTT directly (for MVP simplicity and security).
 
 ## 7. Security and Compliance
 
@@ -300,7 +299,7 @@ Person B (AWS/Cloud API):
 
 - IoT Core Thing/policy/rules
 - Lambda ingestion + DynamoDB schema
-- API Gateway endpoints for dashboard/mobile
+- API Gateway endpoints for dashboard
 
 Shared:
 

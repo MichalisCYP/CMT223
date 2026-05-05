@@ -1,233 +1,194 @@
 # System Architecture
 
-## Components
+The FocusFlow system follows a tiered IoT architecture (Edge, Fog, Cloud) designed for real-time focus monitoring and productivity enhancement.
 
-- Edge node (Arduino): reads sound/light/temp-humidity/PIR/distance/LED-button input and sends telemetry.
-- Edge CV node (Raspberry Pi CV): captures camera signals and sends focus-related features directly to cloud.
-- Fog node (Raspberry Pi hub): system of record, controller, and local inference/orchestration.
-- Cloud node: cloud-side processing and integration services.
-- AWS IoT Core: essential cloud message ingress, routing, and device connectivity.
-- Client apps: web client required for MVP, mobile client optional after MVP.
-
-## Topology
+## High-Level Diagram
 
 ```mermaid
 flowchart TB
-    subgraph EDGE[Edge Layer]
-        subgraph ARD[Arduino Sensor Node]
-            ALS[Grove Light Sensor A3]
-            ASD[Grove Sound Sensor A0]
-            ALBTN[LED Button D3]
-            APIR[Grove PIR Sensor D2]
-            ADHT[Grove DHT Sensor D5]
-            ADIST[Grove Ultrasonic Ranger D6]
-            ABT[USB Serial from Arduino]
-        end
-
-        subgraph CV[Pi CV Node]
-            CAM[Camera CSI or USB]
-            CVP[CV Processor]
-        end
-    end
-
-    subgraph FOG[Fog Layer]
-        H[Pi Hub Controller]
-        HLBAR[LED Bar D2]
-        HSPK[Grove Speaker D6]
-        HLCD[GroveLCD I2C-2]
-        HOLED1[OLED Display 1 I2C-1]
-        HOLED2[OLED Display 2 I2C-2]
-        DB[(SQLite)]
-    end
-
-    subgraph CLOUD[Cloud Layer]
-        AWS[AWS IoT Core]
-        CN[Cloud Node Services]
-        CDB[(Cloud Database)]
-    end
-
-    subgraph CLIENT[Client Layer]
-        WEB[Web App]
-        MOB[Mobile App]
-    end
-
-    ALS --> ABT
-    ASD --> ABT
-    ALBTN --> ABT
-    APIR --> ABT
-    ADHT --> ABT
-    ADIST --> ABT
-    CAM --> CVP
-
-    ABT -->|USB Serial Telemetry| H
-    CVP -->|MQTT over TLS| AWS
-
-    H --> DB
-    H --> HLBAR
-    H --> HSPK
-    H --> HLCD
-    H --> HOLED1
-    H --> HOLED2
-    DB -->|MQTT over TLS via AWS worker| AWS
-    AWS --> CN
-    CN --> CDB
-    CN -->|HTTPS/WebSocket API| WEB
-    CN -->|HTTPS/WebSocket API| MOB
+ subgraph ARD["Arduino Sensor Node"]
+    direction LR
+        MCU["Atmega328P"]
+        S1["Grove Light A3"]
+        S2["Grove Sound A0"]
+        S3["Grove DHT D5"]
+        S4["Grove PIR D2"]
+        S5["Grove Ultrasonic D6"]
+        A1["LED Buttons D3/D7"]
+  end
+ subgraph CV["Raspberry Pi CV Node"]
+        PROC["OpenCV/MediaPipe"]
+        CAM["CSI/USB Camera"]
+        SEC1["MQTT/TLS"]
+  end
+ subgraph EDGE["Edge Layer: Sensing & Biometrics"]
+    direction TB
+        ARD
+        CV
+  end
+ subgraph FOG["Fog Layer: Local Intelligence & Hub"]
+    direction TB
+        HUB["Pi Hub Controller"]
+        DB1[("SQLite")]
+        ALGO["Focus Analysis Worker"]
+        INGEST["ArduinoIngestWorker"]
+            GROVE["GroveWorker"]
+        SESSION["SessionWorker"]
+        DIS["DisplayWorker"]
+        PUB["AwsIotPublisherWorker"]
+        RPC["RpcWorker"]
+        LCD["Grove LCD I2C"]
+        OLED["OLED Display I2C"]
+  end
+ subgraph CLOUD["Cloud Layer: Aggregation & Services"]
+    direction TB
+        IOT["AWS IoT Core"]
+        API["Cloud Node API"]
+        DB2[("Cloud Database")]
+        ANL["Cloud Analytics"]
+  end
+ subgraph VIEWS["Interactive Views"]
+    direction LR
+        LIVE["Live Environment"]
+        TRND["Productivity Trends"]
+        HIST["Session History"]
+  end
+ subgraph DASH["FocusFlow Dashboard"]
+    direction TB
+        VZN["Visualization Engine"]
+        VIEWS
+  end
+ subgraph CLIENT["Client Layer: User Interface"]
+        DASH
+  end
+    S1 -- Analog --- MCU
+    S2 -- Analog --- MCU
+    S3 -- Digital --- MCU
+    S4 -- Digital --- MCU
+    S5 -- Digital --- MCU
+    A1 -- GPIO --- MCU
+    CAM -- Frames --> PROC
+    PROC -- "Payload: {facePresent:bool, eyes_detected: bool...}" --> SEC1
+    HUB <--> DB1
+    HUB -- light, sound, distance, move, temperature --> ALGO
+      HUB -- grove button input --> GROVE
+      GROVE -- button events --> SESSION
+    HUB -- button events --> SESSION
+    SESSION -- session state --> LCD
+    SESSION -- session state --> OLED
+    HUB -- state snapshot --> DIS
+    DIS -- Env Metrics & Focus Score --> LCD
+    DIS -- Timer &amp; Session State --> OLED
+    IOT --> API
+    API --> DB2 & ANL
+    VZN --> VIEWS
+    MCU -- USB Serial / JSON (Payload: {light, sound, move, temp, hum, distance_cm, button, button2} --> INGEST
+    INGEST -- parsed environment data --> HUB
+    SEC1 -- MQTT over TLS --> IOT
+    HUB -- sensor & session data --> PUB
+    PUB -- MQTT over TLS --> IOT
+    HUB -- state snapshot --> RPC
+    RPC -- REST API / HTTP --> VZN
+    API <-- HTTPS / WebSockets --> VZN
+    ALGO -. Inference: focus_score, reasons .-> DB1
+    API -. Aggregates: session_history, trends .-> VZN
 ```
 
-## Fog Node Modules (Pi Hub)
+## 1. System Components
 
-- `config.py`: environment-driven configuration and tuning values.
-- `repository.py`: SQLite-backed repository for environment, session, and focus logs.
-- `state.py`: in-memory `SharedState` snapshot used by workers.
-- `session.py`: `SessionManager` implementing Pomodoro/session state transitions.
-- `display.py`: `LedEnvironmentDisplay` and `OledSessionDisplay` renderers for local outputs.
-- `workers.py`: background workers:
-  - `ArduinoIngestWorker`: reads Arduino serial telemetry and writes environment rows to SQLite.
-  - `SessionWorker`: handles button events and session ticking, persisting session events.
-  - `FocusWorker`: computes focus score periodically and writes focus rows.
-  - `DisplayWorker`: renders environment/session/focus to the LED bar and OLED displays.
-  - `AwsIotPublisherWorker` (optional): polls the `repository` (SQLite) and publishes new rows to AWS IoT.
-- `main.py`: start/shutdown orchestration wiring `SharedState`, `Repository`, and workers.
-- `utils.py`: small helpers (`utc_now_iso`, JSON parsing, clamping) used across modules.
+### Edge Layer
 
-## Cloud Node Modules
+- **Arduino Sensor Node**: A microcontroller-based unit that handles environmental sensing and physical user interaction (buttons).
+- **Raspberry Pi CV Node**: A dedicated computer vision unit that processes video streams locally to extract focus-related biometric signals.
 
-- iot_ingest: subscribe to AWS IoT topics and normalize payloads.
-- cloud_api: serve web client APIs for MVP and optional mobile APIs post-MVP.
-- cloud_analytics: aggregate trends, session summaries, and insights.
-- cloud_storage_writer: persist data to cloud database/object storage.
-- notification_router: send push or alert events to client apps.
+### Fog Layer
 
-## Data Flows
+- **Raspberry Pi Hub**: The "brain" of the local environment. It orchestrates data ingestion, runs the local session manager (Pomodoro logic), and computes the real-time **Focus Score**.
+- **Local Storage (SQLite)**: Ensures "local-first" operation, allowing the system to function without an internet connection.
 
-1. Live flow
+### Cloud Layer
 
-- Arduino -> fog ingest -> SQLite + focus/session -> local alerts.
-- AwsIotPublisherWorker -> polls SQLite and publishes new environment/session/focus rows to AWS IoT -> cloud node.
-- CV -> AWS IoT -> cloud node for direct CV telemetry/signals.
+- **AWS IoT Core**: Acts as the secure message broker for device-to-cloud communication.
+- **Cloud Node Services**: Handles long-term persistence, cross-session analytics, and serves the user-facing API.
 
-2. Sync flow
+### Client Layer
 
-- SQLite unsynced rows -> cloud_sync -> AWS IoT -> cloud node persistence -> ack -> mark synced.
+- **FocusFlow Dashboard**: A modern web application for real-time monitoring, historical review, and system configuration.
 
-3. Client interaction flow
+---
 
-- Client apps -> cloud API -> control/update request -> AWS IoT command topic -> fog node action.
+## 2. Data Types & Collection
 
-## Protocol Choices
+| Category          | Data Points                                                              | Collection Method                          |
+| :---------------- | :----------------------------------------------------------------------- | :----------------------------------------- |
+| **Environmental** | `light_level`, `sound_level`, `temp`, `humidity`, `movement`, `distance` | Periodic sampling (1Hz - 5Hz) via Arduino  |
+| **Biometric**     | `face_present`, `looking_away`, `head_pose`, `slouching`                 | Local CV inference on Pi (2s interval)     |
+| **Session**       | `status` (running/paused), `phase` (work/break), `duration`              | Event-driven state transitions in Fog Node |
+| **Inference**     | `focus_score` (0-100), `focus_reasons`, `confidence`                     | Computed every 5s by Fog Node workers      |
 
-- Edge Arduino -> fog hub: newline-delimited JSON over USB serial.
-- Edge CV -> AWS IoT Core: MQTT over TLS for direct cloud telemetry.
-- Fog -> AWS IoT Core: MQTT over TLS (essential path).
-- Cloud node -> client apps: HTTPS REST + WebSocket for live updates.
-- Client apps -> cloud node: authenticated HTTPS.
+---
 
-## Architecture Decisions
+## 3. Sensors and Actuators
 
-- Local-first storage with SQLite.
-- CV node is mandatory for focus-aware features.
-- AWS IoT Core is mandatory for cloud connectivity.
-- Cloud node is mandatory for remote APIs, persistence, and analytics.
-- Web client is mandatory for MVP.
-- Mobile client is optional post-MVP.
-- Layered design is fixed: Edge (sensing), Fog (local control), Cloud (remote services).
+### Sensors
 
-## Main Risks
+- **Light Sensor (Grove)**: Measures ambient lighting quality.
+- **Sound Sensor (Grove)**: Estimates environmental noise distractions.
+- **DHT11 (Grove)**: Monitors room comfort (Temperature/Humidity).
+- **PIR Motion (Grove)**: Detects physical presence/movement.
+- **Ultrasonic Ranger (Grove)**: Monitors desk distance and posture.
+- **Camera (Pi Camera/USB)**: Captures video for local biometric analysis.
 
-- USB serial disconnects.
-- Sensor noise causing unstable score.
-- CV latency on Pi hardware.
-- Cloud connectivity interruptions impacting remote UX.
-- API auth/security complexity for client apps.
+### Actuators
 
-## Decisions Baseline
+- **LED Buttons**: Provide visual feedback for session status (e.g., Glowing during work).
+- **Grove LCD (16x2)**: Displays real-time environment metrics (Temperature, Humidity) and the current **Focus Score**.
+- **OLED Display (128x64)**: Shows the active **Pomodoro Timer** and current session state (Work/Break/Paused).
 
-MVP decisions are finalized in `../1. Requirements/Requirements-and-Plan.md`.
+---
 
-- CV transport: MQTT over TLS direct to AWS IoT Core.
-- Cloud ingress: AWS IoT Core MQTT over TLS.
-- Client app live updates: WebSocket preferred, HTTP polling fallback.
-- Architecture layers: Edge + Fog + Cloud + Clients are all essential.
+## 4. Network Protocols & Communication
 
-## Hardware Mapping
+- **USB Serial (JSON)**: Reliable, low-latency communication between Arduino and Pi Hub.
+- **I2C**: High-speed serial bus for local displays (LCD/OLED).
+- **MQTT over TLS (MQTTS)**: Industry-standard secure messaging for IoT-to-Cloud telemetry.
+- **HTTPS (REST)**: Secure request-response for dashboard-to-cloud configuration.
+- **WebSockets (WSS)**: Low-latency, full-duplex communication for real-time dashboard updates.
 
-### Board Allocation
+---
 
-- Arduino: Grove sound, light, DHT, LED button, PIR, ultrasonic ranger, USB serial telemetry.
-- Pi hub: GroveLCD, OLED Display 1, OLED Display 2, LED Bar, Grove Speaker, local control.
-- Pi CV node: Raspberry Pi camera and CV processing.
+## 5. Data Analytics Processes
 
-### Hardware Topology
+### Edge Analytics (Biometrics)
 
-```mermaid
-flowchart TB
-    subgraph ARD[Arduino Node]
-        ALS[Grove Light Sensor A3]
-        ASD[Grove Sound Sensor A0]
-        ALBTN[LED Button D3]
-        APIR[Grove PIR Sensor D2]
-        ADHT[Grove DHT Sensor D5]
-        ADIST[Grove Ultrasonic Ranger D6]
-        ABT[USB Serial from Arduino]
-    end
+The CV Node uses **Haar Cascades** and **MediaPipe Face Mesh** to process raw video frames. It extracts high-level features (like head yaw/pitch) without sending images to the cloud, ensuring user privacy.
 
-    subgraph HUB[Raspberry Pi Hub]
-        HLBAR[LED Bar D2]
-        HSPK[Grove Speaker D6]
-        HLCD[GroveLCD I2C-2]
-        HOLED1[OLED Display 1 I2C-1]
-        HOLED2[OLED Display 2 I2C-2]
-    end
+### Fog Analytics (Local Inference)
 
-    subgraph CV[Raspberry Pi CV Node]
-        CAM[Camera CSI or USB]
-        CVP[CV Processor]
-    end
+The Fog Hub runs a **Multi-Factor Scoring Engine** that combines:
 
-    subgraph CLOUD[Cloud Layer]
-        AWS[AWS IoT Core]
-    end
+1. Environmental noise/light stability.
+2. User presence and posture.
+3. CV-derived focus signals.
+   The engine outputs a normalized **Focus Score (0-100)** used for local alerts and displays.
 
-    ARD -->|USB Serial Telemetry| HUB
-    CAM --> CVP
-    CVP -->|MQTT over TLS| AWS
-```
+### Cloud Analytics (Insights)
 
-### Sensor And Actuator Table
+The Cloud Node aggregates data over days and weeks to identify **Productivity Trends**, such as peak focus times and common distractors. These insights are served via REST APIs to the client dashboard.
 
-| Device                          | Board                | Suggested Pin               | Voltage / Interface            | Sampling Rate                  | Purpose                                            |
-| ------------------------------- | -------------------- | --------------------------- | ------------------------------ | ------------------------------ | -------------------------------------------------- |
-| Light sensor                    | Arduino              | A3                          | Grove analog sensor            | 1 Hz                           | Measure ambient lighting quality                   |
-| Sound sensor                    | Arduino              | A0                          | Grove analog sensor            | 2 Hz to 5 Hz                   | Estimate environmental noise and distraction level |
-| LED button input                | Arduino              | D3                          | Digital input (with LED)       | event-driven                   | Manual local input and interaction state           |
-| PIR movement sensor             | Arduino              | D2                          | Grove digital sensor           | 2 Hz                           | Detect movement near the desk                      |
-| USB serial connection           | Arduino              | USB port                    | Native USB serial              | continuous                     | Send telemetry to the hub                          |
-| Temperature and humidity sensor | Arduino              | D5                          | Grove DHT digital interface    | 0.2 Hz to 0.33 Hz              | Measure room comfort conditions                    |
-| Distance sensor                 | Arduino              | D6                          | Grove ultrasonic ranger signal | 1 Hz to 2 Hz                   | Presence estimation and desk distance monitoring   |
-| LED bar                         | Raspberry Pi hub     | D2                          | Digital GPIO / Grove           | event-driven                   | Visual intervention intensity and state feedback   |
-| Grove speaker                   | Raspberry Pi hub     | D6                          | Digital/PWM output             | event-driven                   | Audio interventions and alerts                     |
-| GroveLCD                        | Raspberry Pi hub     | I2C-2                       | I2C / Grove                    | update on state change or 1 Hz | Main local status and timer display                |
-| OLED display 1                  | Raspberry Pi hub     | I2C-1                       | I2C                            | update on state change or 1 Hz | Secondary local metrics display                    |
-| OLED display 2                  | Raspberry Pi hub     | I2C-2                       | I2C                            | update on state change or 1 Hz | Additional local context display                   |
-| Camera                          | Raspberry Pi CV node | CSI camera connector or USB | CSI / USB                      | 5 fps to 15 fps for MVP        | Eye tracking, head pose, face presence             |
+### Dashboard Analytics (Visualization)
 
-### Suggested Pin Plan (MVP)
+The FocusFlow Dashboard transforms raw and aggregated data into actionable insights:
 
-#### Arduino
+1. **Real-time Environment**: Visualizes live telemetry (light, sound, focus score) using WebSockets for immediate feedback.
+2. **Trend Analysis**: Utilizes charting libraries (e.g., Recharts) to plot historical trends, allowing users to visualize productivity over time.
+3. **Session History**: Processes event-driven data to reconstruct past focus sessions, providing a detailed log of work-break cycles and performance.
 
-- `A3`: light sensor
-- `A0`: sound sensor
-- `D3`: LED button input
-- `D2`: PIR motion sensor
-- `D5`: Grove DHT sensor
-- `D6`: Grove ultrasonic ranger
-- USB: Arduino serial connection to the Pi
+---
 
-#### Raspberry Pi Hub
+## 6. Security and Privacy
 
-- `D2`: LED Bar
-- `D6`: Grove Speaker
-- `I2C-2`: GroveLCD
-- `I2C-1`: OLED Display 1
-- `I2C-2`: OLED Display 2
+- **Transport Security**: All network communication (MQTT, HTTPS, WebSockets) is encrypted using **TLS 1.2/1.3**.
+- **Device Authentication**: Devices connect to AWS IoT Core using **X.509 Client Certificates**, ensuring only authorized hardware can send data.
+- **Local-First Privacy**: CV processing is entirely local. No video or images are stored or transmitted; only anonymous metadata (e.g., `looking_away: true`) leaves the device.
+- **Access Control**: The Web Dashboard requires **JWT-based authentication** to access user-specific productivity data.

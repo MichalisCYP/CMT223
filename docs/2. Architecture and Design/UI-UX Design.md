@@ -39,7 +39,3 @@ Show:
 - no debug noise on main screen
 - actionable alerts only
 - keep demo path obvious
-
-## Mobile
-
-Optional after MVP. If done, keep to read-only status + notifications.

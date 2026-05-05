@@ -18,7 +18,7 @@ In scope:
 - Computing focus score and confidence
 - Triggering interventions and client app updates
 - Persisting local records and performing cloud synchronization
-- Serving cloud APIs for client apps (web required for MVP, mobile optional post-MVP)
+- Serving cloud APIs for client apps (web required for MVP)
 - Processing remote client commands through cloud pathways
 
 Out of scope:
@@ -33,7 +33,7 @@ Out of scope:
 - Edge: Arduino telemetry producer and CV producer.
 - Fog: Ingest Gateway, Session Manager, Focus Engine, Alert Manager, Local Repository, Local API.
 - Cloud: AWS IoT ingress, Cloud API, cloud persistence, analytics, notifications.
-- Clients: web app (MVP) and optional mobile app consuming cloud APIs.
+- Clients: web app (MVP).
 
 ### Component Responsibilities
 
@@ -45,7 +45,7 @@ Out of scope:
 - Local Repository: local-first persistence and retrieval abstraction.
 - Cloud Sync Worker: retries and publishes unsynced records to AWS IoT Core.
 - Cloud Node Services: consume AWS IoT data, persist cloud records, and expose client APIs.
-- Client Apps: web UX for MVP, with optional mobile UX post-MVP.
+- Client Apps: web UX for MVP.
 
 ### UML Component View
 
