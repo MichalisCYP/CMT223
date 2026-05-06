@@ -4,7 +4,7 @@ FocusFlow is a modular, distributed IoT system designed to enhance productivity 
 
 ---
 
-## ✅ Key MVP Features
+## Key MVP Features
 
 - **Session Management**: Automatic 25-minute focus and 5-minute break timers with start/pause/resume/stop controls via hardware buttons.
 - **Environmental Monitoring**: Real-time tracking of light, sound, motion, temperature, and humidity.
@@ -16,7 +16,7 @@ FocusFlow is a modular, distributed IoT system designed to enhance productivity 
 
 ---
 
-## 🏗️ System Organisation & Data Flow
+## System Organisation & Data Flow
 
 FocusFlow follows a "Fog Computing" architecture where data is processed locally at the edge for immediate feedback, while critical events are synced to the cloud for long-term analytics.
 
@@ -53,9 +53,9 @@ graph LR
 
 ---
 
-## 📂 Folder and File Structure
+## Folder and File Structure
 
-### 📂 Root Directory
+### Root Directory
 - `arduino/`: Firmware for the Arduino-based sensor node.
 - `raspberry/`: Core "Fog Node" implementation for the primary Raspberry Pi.
 - `raspberry-2/`: Computer Vision (CV) processing node for the secondary Raspberry Pi.
@@ -65,7 +65,7 @@ graph LR
 - `requirements.txt`: Global Python dependencies.
 - `SETUP.md`: (Deprecated) Integrated into this README.
 
-### 📂 arduino/main/
+### arduino/main/
 The firmware responsible for local sensor polling and data transmission.
 - `main.ino`: Primary entry point and setup/loop logic.
 - `config.h`: Centralized pin definitions, thresholds, and timing constants.
@@ -73,7 +73,7 @@ The firmware responsible for local sensor polling and data transmission.
 - `payload_formatter.h`: Handles JSON serialization for data transmission to the Pi.
 - `usbserial_transport.h`: Manages serial communication over USB.
 
-### 📂 raspberry/
+### raspberry/
 The "Brain" of the system, handling session logic, data persistence, and display updates.
 - `main.py`: Entry point for the fog node.
 - `fog/`: Core logic package containing multi-threaded workers for ingestion, session management, and focus calculation.
@@ -81,7 +81,7 @@ The "Brain" of the system, handling session logic, data persistence, and display
 
 ---
 
-## 🛠️ Setup Instructions
+## Setup Instructions
 
 ### 1. Prerequisites
 - **AWS Account**: Access to AWS IoT Core for cloud communication.
@@ -154,7 +154,7 @@ Access the UI at `http://localhost:5173`.
 
 ---
 
-## 📊 Telemetry & Communication
+## Telemetry & Communication
 
 ### Arduino → Hub (JSON over Serial)
 The Arduino node sends telemetry every 1 second in the following format:
@@ -175,7 +175,7 @@ The Hub publishes data to AWS IoT Core on the following topics:
 
 ---
 
-## 📦 Third-Party Software and Frameworks
+## Third-Party Software and Frameworks
 
 | Software / Framework | Purpose | Documentation |
 | :--- | :--- | :--- |
@@ -191,7 +191,7 @@ The Hub publishes data to AWS IoT Core on the following topics:
 
 ---
 
-## 📄 Code Documentation
+## Code Documentation
 
 - **In-line Comments**: All Python and Arduino source files follow standard PEP8/Google style guides with descriptive comments.
 - **Project Docs**: Detailed architectural designs, requirements, and implementation plans are located in the `docs/` directory.
@@ -202,7 +202,7 @@ The Hub publishes data to AWS IoT Core on the following topics:
 
 ---
 
-## ❓ Troubleshooting
+## Troubleshooting
 
 - **Serial Device Errors**: If the Hub cannot connect to the Arduino, ensure the user has permissions for `/dev/ttyACM0` (`sudo usermod -a -G dialout $USER`).
 - **Grove Hardware Not Found**: Verify that I2C is enabled in `raspi-config` and that the GrovePi board is correctly seated.

@@ -1,7 +1,0 @@
-if(msg.payload<20){
-	msg.payload=1;    
-}
-else{
-	msg.payload=0;
-}
-return msg;  

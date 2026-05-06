@@ -1,6 +1,0 @@
-sudo apt install npm
-sudo npm install npm@latest -g
-curl -kL dexterindustries.com/update_grovepi | bash
-sudo reboot
-sudo i2cdetect -y 1
-sudo apt install nodered

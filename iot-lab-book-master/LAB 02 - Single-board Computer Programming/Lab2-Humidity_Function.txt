@@ -1,7 +1,0 @@
-if(msg.payload.humidity>60){
-    msg.payload.text = "HUMIDITY HIGH";    
-}
-else{
-    msg.payload.text = msg.payload.temperature;
-}
-return msg;   

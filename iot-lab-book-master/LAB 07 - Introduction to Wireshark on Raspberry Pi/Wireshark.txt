@@ -1,7 +1,0 @@
-sudo nano /etc/apt/sources.list
-
-sudo apt install wireshark
-
-sudo wireshark
-
-wireshark -h
