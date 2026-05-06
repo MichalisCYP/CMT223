@@ -209,24 +209,13 @@ class OledSessionDisplay:
                     w, _ = draw.textsize(status, font=self._font_status)
                 draw.text(((display_width - w) // 2, 2), status, fill="white", font=self._font_status)
                 
-                #3. Phase (centered, only if not FOCUS)
-                if phase != "FOCUS":
-                    try:
-                        bbox = draw.textbbox((0, 0), phase, font=self._font_phase)
-                        w = bbox[2] - bbox[0]
-                    except AttributeError:
-                        w, _ = draw.textsize(phase, font=self._font_phase)
-                    draw.text(((display_width - w) // 2, 22), phase, fill="white", font=self._font_phase)
-                
                 # 4. Timer (Centered, Middle)
                 try:
                     bbox = draw.textbbox((0, 0), timer, font=self._font_timer)
                     w = bbox[2] - bbox[0]
                 except AttributeError:
                     w, _ = draw.textsize(timer, font=self._font_timer)
-                #shift timer up/down based on phase visibility
-                timer_y = 24 if phase == "FOCUS" else 36
-                draw.text(((display_width - w) // 2, timer_y), timer, fill="white", font=self._font_timer)
+                draw.text(((display_width - w) // 2, 32), timer, fill="white", font=self._font_timer)
                 
         except Exception as ex:
             print(f"[OLED] Render Error: {ex}")
